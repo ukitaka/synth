@@ -119,27 +119,6 @@ export function SynthPanel({ system, active }: Props) {
         ))}
       </div>
 
-      <div className="fx-rack">
-        {FX_DEFS.map((def) => (
-          <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
-            <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
-              <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
-              {def.label}
-            </button>
-            <div className="knob-row">
-              {def.params.map((spec) => (
-                <Knob
-                  key={spec.key}
-                  spec={spec}
-                  value={fxParams[def.id][spec.key]}
-                  onChange={(v) => setFxParam(def.id, spec.key, v)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
       <div className="keyboard">
         {KEYS.map((k) => (
           <button
@@ -158,6 +137,27 @@ export function SynthPanel({ system, active }: Props) {
           >
             {k.note}
           </button>
+        ))}
+      </div>
+
+      <div className="fx-rack">
+        {FX_DEFS.map((def) => (
+          <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
+            <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
+              <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
+              {def.label}
+            </button>
+            <div className="knob-row">
+              {def.params.map((spec) => (
+                <Knob
+                  key={spec.key}
+                  spec={spec}
+                  value={fxParams[def.id][spec.key]}
+                  onChange={(v) => setFxParam(def.id, spec.key, v)}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
