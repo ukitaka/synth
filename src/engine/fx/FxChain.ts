@@ -20,6 +20,7 @@ export class FxChain {
   private readonly wah: AutoWah;
   private readonly delay: FeedbackDelay;
   private readonly reverb: Reverb;
+  private readonly values: Record<FxId, Record<string, number>> = { drive: {}, wah: {}, delay: {}, reverb: {} };
 
   constructor() {
     this.input = new Tone.Gain(1);
@@ -51,7 +52,12 @@ export class FxChain {
     return this.node(id).isEnabled();
   }
 
+  getParam(id: FxId, key: string): number {
+    return this.values[id][key];
+  }
+
   setParam(id: FxId, key: string, value: number): void {
+    this.values[id][key] = value;
     if (key === "mix") {
       this.node(id).setMix(value);
       return;

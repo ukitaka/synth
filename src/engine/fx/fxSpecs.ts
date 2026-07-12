@@ -1,9 +1,10 @@
-import type { ParamSpec } from "../types";
+import type { FxId, ParamSpec } from "../types";
+export type { FxId } from "../types";
 
-// Declarative description of the FX rack, so the SYNTH FX UI is generated the
-// same paramSpec-driven way as the drum knobs.
+// Declarative description of the FX rack, so the FX UI is generated the same
+// paramSpec-driven way as the sound knobs.
 
-export type FxId = "drive" | "wah" | "delay" | "reverb";
+export const FX_IDS: FxId[] = ["drive", "wah", "delay", "reverb"];
 
 export interface FxDef {
   id: FxId;

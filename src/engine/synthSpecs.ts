@@ -1,4 +1,5 @@
 import type { ParamSpec } from "./types";
+export type { SynthWaveform } from "./types";
 
 // Params for the SYNTH-mode mono synth. Same paramSpec shape as the drum voices
 // so the UI knobs are generated the same way. Pitch envelope + noise + filter
@@ -9,8 +10,6 @@ const ms = (v: number) => `${Math.round(v * 1000)}ms`;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const oct = (v: number) => (v <= 0 ? "off" : `${v.toFixed(1)}oct`);
 const x = (v: number) => `x${v.toFixed(1)}`;
-
-export type SynthWaveform = "sawtooth" | "square" | "triangle" | "sine";
 
 export const SYNTH_SPECS: ParamSpec[] = [
   // pitch envelope — set to x1 for melodic play, raise for a drum "thump"

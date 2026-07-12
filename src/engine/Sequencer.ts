@@ -1,15 +1,14 @@
 import * as Tone from "tone";
-import type { DrumEngine } from "./DrumEngine";
-import type { Pattern, VoiceId } from "./types";
+import type { PatternEngine } from "./PatternEngine";
+import type { Pattern } from "./types";
 
 /**
- * 16-step sequencer (design §7, Phase 2). Timing comes only from the Transport's
- * look-ahead scheduler — never setTimeout/rAF (NFR-02). The playhead is drawn
- * via Tone.Draw so the UI follows audio time instead of driving it.
+ * 16-step sequencer. Timing comes only from the Transport's look-ahead
+ * scheduler — never setTimeout/rAF. The playhead is drawn via Tone.Draw so the
+ * UI follows audio time instead of driving it.
  *
- * The only coupling to Phase 1 is `engine.trigger(id, vel, time)`: the callback
- * forwards the Transport's future `time` straight through, so voices sound
- * exactly as they do from the pads (design §7).
+ * The only coupling to the sound layer is `engine.trigger(trackIndex, vel,
+ * time)`, which forwards the Transport's future time straight through.
  */
 export class Sequencer {
   private pattern: Pattern;
@@ -17,7 +16,7 @@ export class Sequencer {
   private step = 0;
   private onStep: ((step: number) => void) | null = null;
 
-  constructor(private readonly engine: DrumEngine, pattern: Pattern) {
+  constructor(private readonly engine: PatternEngine, pattern: Pattern) {
     this.pattern = pattern;
   }
 
@@ -25,11 +24,8 @@ export class Sequencer {
     this.onStep = cb;
   }
 
-  /**
-   * Swap the live pattern. Editing during playback (FR-054) works because the
-   * scheduled callback reads `this.pattern` fresh every step; tempo/swing are
-   * pushed to the Transport immediately.
-   */
+  /** Swap the live pattern. Editing during playback works because the callback
+   * reads `this.pattern` fresh each step; tempo/swing are pushed immediately. */
   setPattern(pattern: Pattern): void {
     this.pattern = pattern;
     const t = Tone.getTransport();
@@ -50,17 +46,15 @@ export class Sequencer {
     const t = Tone.getTransport();
     t.bpm.value = this.pattern.bpm;
     t.swing = this.pattern.swing;
-    t.swingSubdivision = "16n"; // swing delays the off-beat 16ths
+    t.swingSubdivision = "16n";
     this.step = 0;
 
     this.eventId = t.scheduleRepeat((time) => {
       const step = this.step;
-      const tracks = this.pattern.tracks;
-      for (const id of Object.keys(tracks) as VoiceId[]) {
-        const vel = tracks[id]?.[step] ?? 0;
-        if (vel > 0) this.engine.trigger(id, vel, time); // future time, transparent
-      }
-      // Advance for the next callback; UI update is deferred to audio time.
+      this.pattern.tracks.forEach((track, i) => {
+        const vel = track.steps[step] ?? 0;
+        if (vel > 0) this.engine.trigger(i, vel, time); // future time, transparent
+      });
       this.step = (step + 1) % this.pattern.length;
       if (this.onStep) Tone.getDraw().schedule(() => this.onStep?.(step), time);
     }, "16n");
@@ -77,6 +71,6 @@ export class Sequencer {
     t.stop();
     this.step = 0;
     this.engine.releaseAll();
-    if (this.onStep) this.onStep(-1); // clear playhead
+    if (this.onStep) this.onStep(-1);
   }
 }

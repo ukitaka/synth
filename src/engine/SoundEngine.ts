@@ -1,22 +1,23 @@
 import * as Tone from "tone";
 import { FxChain } from "./fx/FxChain";
-import { SYNTH_SPECS, synthDefaults, type SynthWaveform } from "./synthSpecs";
-import type { FxId } from "./fx/fxSpecs";
+import { SYNTH_SPECS, synthDefaults } from "./synthSpecs";
+import { FX_DEFS } from "./fx/fxSpecs";
+import { blankPreset } from "./preset";
+import type { FilterType, FxId, SoundPreset, SynthWaveform } from "./types";
 
 /**
- * Monophonic subtractive synth for SYNTH mode, built to double as a drum
- * designer (pitch envelope + noise + filter envelope). Signal path:
+ * Monophonic subtractive synth = one designed "sound" (SOUND tab), and the
+ * voice each PATTERN track plays. Signal path:
  *
  *   Osc(wave) ─► oscGain(1-noise) ─┐
- *   Noise     ─► noiseGain(noise)  ─┴─► Filter ─► AmpEnv ─► out ─► FxChain ─► Bus
+ *   Noise     ─► noiseGain(noise)  ─┴─► Filter(LP/HP/BP) ─► AmpEnv ─► out ─► FxChain ─► Bus
  *   PitchEnv (note*pitchAmt -> note) ─► Osc.frequency
  *   FilterEnv (cutoff, +filterEnv oct) ─► Filter.frequency
  *
- * The pitch envelope is what turns a plain note into a kick/tom: a fast fall
- * from note*pitchAmt down to the note. With pitchAmt = x1 the synth plays
- * ordinary pitched notes. FX are SYNTH-only, on the output (design decision).
+ * The pitch envelope turns a plain note into a kick/tom thump; the noise source
+ * + highpass/bandpass filter cover hats/snares/claps. FX are per-sound.
  */
-export class SynthEngine {
+export class SoundEngine {
   private readonly osc: Tone.Oscillator;
   private readonly noise: Tone.Noise;
   private readonly oscGain: Tone.Gain;
@@ -29,6 +30,7 @@ export class SynthEngine {
   readonly fx: FxChain;
 
   private waveform: SynthWaveform = "sawtooth";
+  private filterType: FilterType = "lowpass";
   private readonly params: Record<string, number> = synthDefaults();
 
   constructor(bus: Tone.Gain) {
@@ -37,13 +39,11 @@ export class SynthEngine {
     this.out.connect(this.fx.input);
     this.fx.connect(bus);
 
-    // sources
     this.osc = new Tone.Oscillator({ type: "sawtooth", frequency: 0 }).start();
     this.noise = new Tone.Noise("white").start();
     this.oscGain = new Tone.Gain(1);
     this.noiseGain = new Tone.Gain(0);
 
-    // filter + envelopes
     this.filter = new Tone.Filter({ type: "lowpass", frequency: 0, Q: 2 });
     this.amp = new Tone.AmplitudeEnvelope({ attack: 0.005, decay: 0.2, sustain: 0.6, release: 0.3 });
     this.pitchEnv = new Tone.FrequencyEnvelope({
@@ -53,7 +53,6 @@ export class SynthEngine {
       attack: 0.001, decay: 0.2, sustain: 0, release: 0.01, baseFrequency: 4000, octaves: 0,
     });
 
-    // Osc + Noise -> mix -> Filter -> AmpEnv -> out
     this.osc.connect(this.oscGain);
     this.noise.connect(this.noiseGain);
     this.oscGain.connect(this.filter);
@@ -61,7 +60,6 @@ export class SynthEngine {
     this.filter.connect(this.amp);
     this.amp.connect(this.out);
 
-    // envelopes drive their targets (targets themselves sit at 0)
     this.pitchEnv.connect(this.osc.frequency);
     this.filterEnv.connect(this.filter.frequency);
 
@@ -72,9 +70,16 @@ export class SynthEngine {
     this.waveform = w;
     this.osc.type = w;
   }
-
   getWaveform(): SynthWaveform {
     return this.waveform;
+  }
+
+  setFilterType(t: FilterType): void {
+    this.filterType = t;
+    this.filter.type = t;
+  }
+  getFilterType(): FilterType {
+    return this.filterType;
   }
 
   private applyParam(key: string, value: number): void {
@@ -103,7 +108,7 @@ export class SynthEngine {
         break;
       case "decay":
         this.amp.decay = value;
-        this.filterEnv.decay = value; // filter env tracks amp decay
+        this.filterEnv.decay = value;
         break;
       case "sustain":
         this.amp.sustain = value;
@@ -119,7 +124,6 @@ export class SynthEngine {
     this.params[key] = value;
     this.applyParam(key, value);
   }
-
   getParams(): Record<string, number> {
     return { ...this.params };
   }
@@ -127,24 +131,57 @@ export class SynthEngine {
   setFxEnabled(id: FxId, on: boolean): void {
     this.fx.setEnabled(id, on);
   }
-
   setFxParam(id: FxId, key: string, value: number): void {
     this.fx.setParam(id, key, value);
   }
-
   isFxEnabled(id: FxId): boolean {
     return this.fx.isEnabled(id);
   }
 
-  noteOn(freq: number, time: number = Tone.now()): void {
-    // Pitch envelope is relative to the played note.
+  /** Snapshot the current design as a portable preset. */
+  toPreset(name: string): SoundPreset {
+    const fx = {} as SoundPreset["fx"];
+    for (const def of FX_DEFS) {
+      const params: Record<string, number> = {};
+      for (const p of def.params) params[p.key] = this.fx.getParam(def.id, p.key);
+      fx[def.id] = { on: this.fx.isEnabled(def.id), params };
+    }
+    return {
+      schema: "lab1.sound",
+      version: 1,
+      name,
+      waveform: this.waveform,
+      filterType: this.filterType,
+      params: this.getParams(),
+      fx,
+    };
+  }
+
+  /** Apply a (validated) preset to this engine. */
+  loadPreset(preset: SoundPreset): void {
+    this.setWaveform(preset.waveform);
+    this.setFilterType(preset.filterType);
+    for (const s of SYNTH_SPECS) {
+      if (typeof preset.params[s.key] === "number") this.setParam(s.key, preset.params[s.key]);
+    }
+    for (const def of FX_DEFS) {
+      const st = preset.fx[def.id];
+      if (!st) continue;
+      for (const p of def.params) {
+        if (typeof st.params[p.key] === "number") this.setFxParam(def.id, p.key, st.params[p.key]);
+      }
+      this.setFxEnabled(def.id, !!st.on);
+    }
+  }
+
+  noteOn(freq: number, time: number = Tone.now(), velocity = 1): void {
     this.pitchEnv.baseFrequency = freq;
     this.pitchEnv.octaves = Math.log2(this.params.pitchAmt);
     this.pitchEnv.cancel(time);
     this.pitchEnv.triggerAttack(time);
     this.filterEnv.cancel(time);
     this.filterEnv.triggerAttack(time);
-    this.amp.triggerAttack(time);
+    this.amp.triggerAttack(time, velocity);
   }
 
   noteOff(time: number = Tone.now()): void {
@@ -153,6 +190,11 @@ export class SynthEngine {
 
   releaseAll(time: number = Tone.now()): void {
     this.amp.triggerRelease(time);
+  }
+
+  /** Restore params to their defaults + all FX off (blank sound). */
+  reset(): void {
+    this.loadPreset(blankPreset(""));
   }
 
   dispose(): void {

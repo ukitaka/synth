@@ -1,40 +1,40 @@
 import * as Tone from "tone";
 import { MasterBus } from "./MasterBus";
-import { DrumEngine } from "./DrumEngine";
-import { SynthEngine } from "./SynthEngine";
+import { SoundEngine } from "./SoundEngine";
+import { PatternEngine } from "./PatternEngine";
 import { Sequencer } from "./Sequencer";
 import { emptyPattern } from "./pattern";
-import { KitStore } from "../storage/KitStore";
+import { SoundPresetStore } from "../storage/SoundPresetStore";
 import { PatternStore } from "../storage/PatternStore";
 import { createStorage } from "../storage/StorageAdapter";
 
-export type Mode = "SYNTH" | "DRUM";
+export type Mode = "SOUND" | "PATTERN";
 
 /**
- * Owns the shared master bus and both engines (design §1). Both engines are
- * created up front and connected to the same bus, so the oscilloscope works in
- * either mode (FR-012) and switching mode is a UI-only concern (FR-010).
+ * Owns the shared master bus and both halves of the app (design: SOUND designs
+ * one voice, PATTERN arranges preset-driven tracks). Both connect to the same
+ * bus, so the oscilloscope works in either mode.
  */
 export class AudioSystem {
   readonly master: MasterBus;
-  readonly drum: DrumEngine;
-  readonly synth: SynthEngine;
+  readonly sound: SoundEngine; // SOUND tab: the voice being designed
+  readonly pattern: PatternEngine; // PATTERN tab: preset-driven tracks
   readonly sequencer: Sequencer;
-  readonly kits: KitStore;
+  readonly presets: SoundPresetStore;
   readonly patterns: PatternStore;
   private started = false;
 
   constructor() {
     this.master = new MasterBus();
-    this.drum = new DrumEngine(this.master.input);
-    this.synth = new SynthEngine(this.master.input);
-    this.sequencer = new Sequencer(this.drum, emptyPattern());
+    this.sound = new SoundEngine(this.master.input);
+    this.pattern = new PatternEngine(this.master.input);
+    this.sequencer = new Sequencer(this.pattern, emptyPattern());
     const storage = createStorage();
-    this.kits = new KitStore(storage);
+    this.presets = new SoundPresetStore(storage);
     this.patterns = new PatternStore(storage);
   }
 
-  /** Resume the AudioContext on first user gesture (iOS autoplay, design §8). */
+  /** Resume the AudioContext on first user gesture (iOS autoplay). */
   async powerOn(): Promise<void> {
     if (this.started) return;
     await Tone.start();
@@ -45,13 +45,13 @@ export class AudioSystem {
     return this.started;
   }
 
-  /** Release the outgoing mode's voices on switch, via release (FR-011). */
+  /** Release the outgoing mode's voices on switch. */
   releaseMode(mode: Mode): void {
-    if (mode === "DRUM") {
+    if (mode === "PATTERN") {
       if (this.sequencer.isPlaying()) this.sequencer.stop();
-      this.drum.releaseAll();
+      this.pattern.releaseAll();
     } else {
-      this.synth.releaseAll();
+      this.sound.releaseAll();
     }
   }
 

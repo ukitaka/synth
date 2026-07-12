@@ -1,20 +1,35 @@
-import { VOICE_IDS, type Pattern, type VoiceId } from "./types";
+import { FACTORY_META, FACTORY_PRESETS, STARTER_KIT } from "./factoryPresets";
+import type { Pattern, PatternTrack, SoundPreset } from "./types";
 
 export const STEP_COUNT = 16;
 
-/** A blank 16-step pattern with every track present and off. */
-export function emptyPattern(name = "New Pattern", bpm = 122): Pattern {
-  const tracks = {} as Record<VoiceId, number[]>;
-  for (const id of VOICE_IDS) tracks[id] = new Array(STEP_COUNT).fill(0);
-  return { schema: "lab1.pattern", version: 1, name, bpm, swing: 0, length: STEP_COUNT, tracks };
+export function makeTrack(preset: SoundPreset, note: number, chokeGroup?: string): PatternTrack {
+  return {
+    preset: structuredClone(preset),
+    note,
+    chokeGroup,
+    mute: false,
+    steps: new Array(STEP_COUNT).fill(0),
+  };
 }
 
-/** Return a copy with every track padded to `length` (import may omit tracks). */
+/** A fresh pattern seeded with the familiar starter kit tracks. */
+export function emptyPattern(name = "New Pattern", bpm = 122): Pattern {
+  const tracks = STARTER_KIT.map((name) => {
+    const preset = FACTORY_PRESETS.find((p) => p.name === name)!;
+    const meta = FACTORY_META[name];
+    return makeTrack(preset, meta.note, meta.choke);
+  });
+  return { schema: "lab1.pattern", version: 2, name, bpm, swing: 0, length: STEP_COUNT, tracks };
+}
+
+/** Pad every track's steps to `length` (import may send short/absent arrays). */
 export function normalizePattern(p: Pattern): Pattern {
-  const tracks = {} as Record<VoiceId, number[]>;
-  for (const id of VOICE_IDS) {
-    const src = p.tracks[id] ?? [];
-    tracks[id] = Array.from({ length: p.length }, (_, i) => src[i] ?? 0);
-  }
-  return { ...p, tracks };
+  return {
+    ...p,
+    tracks: p.tracks.map((t) => ({
+      ...t,
+      steps: Array.from({ length: p.length }, (_, i) => t.steps[i] ?? 0),
+    })),
+  };
 }

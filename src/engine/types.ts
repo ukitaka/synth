@@ -1,57 +1,71 @@
-// Core engine types shared by voices, the drum engine and the persistence layer.
-// Kept free of React and Tone so the engine stays UI-independent (NFR-04, NFR-08).
+// Core engine types. The app is preset-driven: a SoundPreset is one designed
+// voice (SOUND tab), and a Pattern arranges preset-driven tracks (PATTERN tab).
+// Kept free of React/Tone so the engine stays UI-independent and testable.
 
-export type VoiceId = "BD" | "SD" | "CH" | "OH" | "CP" | "LT";
-
-export const VOICE_IDS: VoiceId[] = ["BD", "SD", "CH", "OH", "CP", "LT"];
-
-export const VOICE_LABELS: Record<VoiceId, string> = {
-  BD: "BD",
-  SD: "SD",
-  CH: "CH",
-  OH: "OH",
-  CP: "CP",
-  LT: "LT",
-};
+export type SynthWaveform = "sawtooth" | "square" | "triangle" | "sine";
+export type FilterType = "lowpass" | "highpass" | "bandpass";
+export type FxId = "drive" | "wah" | "delay" | "reverb";
 
 /**
- * Declarative description of one editable voice parameter. The UI renders one
- * knob per spec (design §4) and the serializer validates values against
- * `min`/`max` (FR-044), so adding a parameter needs no UI or validation change.
+ * Declarative description of one editable knob. The UI renders one knob per
+ * spec and the serializer validates values against min/max, so adding a
+ * parameter needs no UI or validation change.
  */
 export interface ParamSpec {
-  key: string; // storage key, e.g. "tune"
-  label: string; // knob caption, e.g. "TUNE"
+  key: string;
+  label: string;
   min: number;
   max: number;
   default: number;
-  scale: "lin" | "log"; // knob response curve
-  fmt: (v: number) => string; // value readout formatter
+  scale: "lin" | "log";
+  fmt: (v: number) => string;
 }
 
-/** 6-voice parameter snapshot — the unit that gets saved/loaded (design §6.1). */
-export interface KitPreset {
-  schema: "lab1.kit";
+/** Enable flag + params for one effect inside a preset. */
+export interface FxState {
+  on: boolean;
+  params: Record<string, number>;
+}
+
+/**
+ * One designed sound (SOUND tab). This is the unit saved/loaded/exported and
+ * the thing a PATTERN track plays. Timbre only — the trigger pitch is a
+ * per-track property so the same preset can be tuned per track.
+ */
+export interface SoundPreset {
+  schema: "lab1.sound";
   version: 1;
   name: string;
-  voices: Record<VoiceId, Record<string, number>>;
+  waveform: SynthWaveform;
+  filterType: FilterType;
+  params: Record<string, number>;
+  fx: Record<FxId, FxState>;
 }
 
-/** 16-step x 6-track pattern (Phase 2, design §6.2). Independent of any kit. */
+/** One track of a pattern: an embedded preset + how/when it fires. */
+export interface PatternTrack {
+  preset: SoundPreset; // embedded snapshot -> patterns are self-contained
+  note: number; // trigger frequency in Hz
+  chokeGroup?: string; // tracks sharing a group cut each other (e.g. hats)
+  mute?: boolean;
+  steps: number[]; // step velocities 0..1
+}
+
+/** 16-step, N-track arrangement (PATTERN tab). Independent of the preset store. */
 export interface Pattern {
   schema: "lab1.pattern";
-  version: 1;
+  version: 2;
   name: string;
   bpm: number;
   swing: number; // 0..0.75
   length: number; // 16
-  tracks: Partial<Record<VoiceId, number[]>>; // step velocities 0..1; omitted = all off
+  tracks: PatternTrack[];
 }
 
-/** Index entry kept in `drumlab:index` for fast listing (design §5). */
+/** Index entry kept in `drumlab:index` for fast listing. */
 export interface IndexEntry {
   id: string;
   name: string;
-  type: "kit" | "pattern";
+  type: "sound" | "pattern";
   updatedAt: number;
 }
