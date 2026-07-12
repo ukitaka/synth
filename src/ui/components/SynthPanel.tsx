@@ -1,21 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import * as Tone from "tone";
 import type { AudioSystem } from "../../engine/AudioSystem";
-import type { ParamSpec } from "../../engine/types";
-import type { SynthParams } from "../../engine/SynthEngine";
+import { SYNTH_SPECS, type SynthWaveform } from "../../engine/synthSpecs";
+import { FX_DEFS, fxDefaults, type FxId } from "../../engine/fx/fxSpecs";
 import { Knob } from "./Knob";
 
-const hz = (v: number) => `${Math.round(v)}Hz`;
-const sec = (v: number) => `${(v * 1000).toFixed(0)}ms`;
-
-const SPECS: Record<"cutoff" | "resonance" | "attack" | "release", ParamSpec> = {
-  cutoff: { key: "cutoff", label: "CUTOFF", min: 80, max: 12000, default: 1200, scale: "log", fmt: hz },
-  resonance: { key: "resonance", label: "RESO", min: 0.5, max: 20, default: 4, scale: "log", fmt: (v) => `Q${v.toFixed(1)}` },
-  attack: { key: "attack", label: "ATTACK", min: 0.001, max: 1, default: 0.01, scale: "log", fmt: sec },
-  release: { key: "release", label: "RELEASE", min: 0.02, max: 2, default: 0.4, scale: "log", fmt: sec },
-};
-
-// One octave, mapped to the home row for PC playing.
+// One octave of keys mapped to the home row for PC playing.
 const KEYS: { note: string; code: string; sharp: boolean }[] = [
   { note: "C4", code: "KeyA", sharp: false },
   { note: "C#4", code: "KeyW", sharp: true },
@@ -32,32 +22,61 @@ const KEYS: { note: string; code: string; sharp: boolean }[] = [
   { note: "C5", code: "KeyK", sharp: false },
 ];
 
+const WAVES: SynthWaveform[] = ["sawtooth", "square", "triangle", "sine"];
+
 interface Props {
   system: AudioSystem;
   active: boolean;
 }
 
-/** Minimal SYNTH-mode UI. Enough to prove mode coexistence (FR-010..012). */
+/** SYNTH-mode UI: octave, drum-capable synth knobs, and the SYNTH-only FX rack. */
 export function SynthPanel({ system, active }: Props) {
-  const [p, setP] = useState<SynthParams>(() => system.synth.getParams());
+  const synth = system.synth;
+  const [wave, setWave] = useState<SynthWaveform>(synth.getWaveform());
+  const [octave, setOctave] = useState(0); // semitone-octave offset from base
+  const [params, setParams] = useState<Record<string, number>>(() => synth.getParams());
+  const [fxOn, setFxOn] = useState<Record<FxId, boolean>>({ drive: false, wah: false, delay: false, reverb: false });
+  const [fxParams, setFxParams] = useState<Record<FxId, Record<string, number>>>(() => ({
+    drive: fxDefaults("drive"),
+    wah: fxDefaults("wah"),
+    delay: fxDefaults("delay"),
+    reverb: fxDefaults("reverb"),
+  }));
   const held = useRef<Set<string>>(new Set());
 
-  const set = <K extends keyof SynthParams>(key: K, value: SynthParams[K]) => {
-    system.synth.setParam(key, value);
-    setP((prev) => ({ ...prev, [key]: value }));
+  const freqOf = (note: string) => Tone.Frequency(note).transpose(octave * 12).toFrequency();
+  const noteOn = (note: string) => synth.noteOn(freqOf(note));
+  const noteOff = () => synth.noteOff();
+
+  const setParam = (key: string, value: number) => {
+    synth.setParam(key, value);
+    setParams((p) => ({ ...p, [key]: value }));
+  };
+  const chooseWave = (w: SynthWaveform) => {
+    synth.setWaveform(w);
+    setWave(w);
+  };
+  const toggleFx = (id: FxId) => {
+    const next = !fxOn[id];
+    synth.setFxEnabled(id, next);
+    setFxOn((s) => ({ ...s, [id]: next }));
+  };
+  const setFxParam = (id: FxId, key: string, value: number) => {
+    synth.setFxParam(id, key, value);
+    setFxParams((s) => ({ ...s, [id]: { ...s[id], [key]: value } }));
   };
 
-  const noteOn = (note: string) => system.synth.noteOn(Tone.Frequency(note).toFrequency());
-  const noteOff = () => system.synth.noteOff();
-
+  // PC keyboard: notes on the home row, z / x shift the octave.
   useEffect(() => {
     if (!active) return;
     const down = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      const k = KEYS.find((x) => x.code === e.code);
-      if (!k) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "SELECT") return;
+      if (e.repeat) return;
+      if (e.code === "KeyZ") return setOctave((o) => Math.max(-3, o - 1));
+      if (e.code === "KeyX") return setOctave((o) => Math.min(3, o + 1));
+      const k = KEYS.find((x) => x.code === e.code);
+      if (!k) return;
       held.current.add(k.note);
       noteOn(k.note);
     };
@@ -74,28 +93,53 @@ export function SynthPanel({ system, active }: Props) {
       window.removeEventListener("keyup", up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, [active, octave]);
 
   return (
     <div className="synth-panel">
-      <div className="wave-row">
-        {(["sawtooth", "square", "triangle", "sine"] as const).map((w) => (
-          <button
-            key={w}
-            type="button"
-            className={`wave-btn${p.waveform === w ? " on" : ""}`}
-            onClick={() => set("waveform", w)}
-          >
-            {w}
-          </button>
+      <div className="synth-head">
+        <div className="wave-row">
+          {WAVES.map((w) => (
+            <button key={w} type="button" className={`wave-btn${wave === w ? " on" : ""}`} onClick={() => chooseWave(w)}>
+              {w}
+            </button>
+          ))}
+        </div>
+        <div className="octave">
+          <span>OCT</span>
+          <button type="button" onClick={() => setOctave((o) => Math.max(-3, o - 1))}>−</button>
+          <span className="octave-val">{octave >= 0 ? `+${octave}` : octave}</span>
+          <button type="button" onClick={() => setOctave((o) => Math.min(3, o + 1))}>+</button>
+        </div>
+      </div>
+
+      <div className="knob-row">
+        {SYNTH_SPECS.map((spec) => (
+          <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
         ))}
       </div>
-      <div className="knob-row">
-        <Knob spec={SPECS.cutoff} value={p.cutoff} onChange={(v) => set("cutoff", v)} />
-        <Knob spec={SPECS.resonance} value={p.resonance} onChange={(v) => set("resonance", v)} />
-        <Knob spec={SPECS.attack} value={p.attack} onChange={(v) => set("attack", v)} />
-        <Knob spec={SPECS.release} value={p.release} onChange={(v) => set("release", v)} />
+
+      <div className="fx-rack">
+        {FX_DEFS.map((def) => (
+          <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
+            <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
+              <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
+              {def.label}
+            </button>
+            <div className="knob-row">
+              {def.params.map((spec) => (
+                <Knob
+                  key={spec.key}
+                  spec={spec}
+                  value={fxParams[def.id][spec.key]}
+                  onChange={(v) => setFxParam(def.id, spec.key, v)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
+
       <div className="keyboard">
         {KEYS.map((k) => (
           <button

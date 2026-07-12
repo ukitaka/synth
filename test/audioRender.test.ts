@@ -3,6 +3,7 @@ import * as Tone from "tone";
 import { MasterBus } from "../src/engine/MasterBus";
 import { DrumEngine } from "../src/engine/DrumEngine";
 import { Sequencer } from "../src/engine/Sequencer";
+import { SynthEngine } from "../src/engine/SynthEngine";
 import { emptyPattern } from "../src/engine/pattern";
 import { VOICE_IDS, type VoiceId } from "../src/engine/types";
 import { audioRenderingAvailable, peak, rmsWindow, zeroCrossingRate } from "./helpers/audioEnv";
@@ -118,5 +119,77 @@ async function render(
     const gaps = hits.slice(1).map((t, i) => t - hits[i]);
     const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
     for (const g of gaps) expect(Math.abs(g - mean)).toBeLessThan(0.03); // < 30ms jitter
+  });
+});
+
+(available ? describe : describe.skip)("SYNTH drum design + FX", () => {
+  it("pitch envelope makes a note fall in pitch (drum thump)", async () => {
+    const buf = await Tone.Offline(() => {
+      const m = new MasterBus();
+      const s = new SynthEngine(m.input);
+      s.setParam("pitchAmt", 6); // strong downward sweep
+      s.setParam("pitchTime", 0.08);
+      s.setParam("sustain", 0);
+      s.setParam("decay", 0.3);
+      s.noteOn(60, 0); // ~C2-ish landing
+    }, 0.4);
+    const sr = buf.sampleRate;
+    const ch = buf.getChannelData(0);
+    const early = zeroCrossingRate(ch, sr, 0.0, 0.03);
+    const late = zeroCrossingRate(ch, sr, 0.15, 0.25);
+    expect(early).toBeGreaterThan(late); // pitch (and thus ZCR) falls
+  });
+
+  it("noise source produces a much brighter signal than a sine", async () => {
+    const render = async (noise: number) => {
+      const buf = await Tone.Offline(() => {
+        const m = new MasterBus();
+        const s = new SynthEngine(m.input);
+        s.setWaveform("sine");
+        s.setParam("noise", noise);
+        s.setParam("cutoff", 12000);
+        s.noteOn(200, 0);
+      }, 0.3);
+      return zeroCrossingRate(buf.getChannelData(0), buf.sampleRate, 0.02, 0.15);
+    };
+    expect(await render(1)).toBeGreaterThan((await render(0)) * 3);
+  });
+
+  it("drive flattens peaks (lower crest factor)", async () => {
+    const crest = async (driveOn: boolean) => {
+      const buf = await Tone.Offline(() => {
+        const m = new MasterBus();
+        const s = new SynthEngine(m.input);
+        s.setWaveform("sine");
+        s.setParam("sustain", 1);
+        if (driveOn) {
+          s.setFxEnabled("drive", true);
+          s.setFxParam("drive", "drive", 15);
+          s.setFxParam("drive", "mix", 1);
+        }
+        s.noteOn(200, 0);
+      }, 0.3);
+      const ch = buf.getChannelData(0);
+      const p = peak(ch);
+      const r = rmsWindow(ch, buf.sampleRate, 0.05, 0.25);
+      return p / (r || 1); // crest factor
+    };
+    expect(await crest(true)).toBeLessThan(await crest(false));
+  });
+
+  it("delay produces a repeat after the note ends", async () => {
+    const buf = await Tone.Offline(() => {
+      const m = new MasterBus();
+      const s = new SynthEngine(m.input);
+      s.setParam("sustain", 0);
+      s.setParam("decay", 0.05); // short blip
+      s.setFxEnabled("delay", true);
+      s.setFxParam("delay", "time", 0.2);
+      s.setFxParam("delay", "feedback", 0.5);
+      s.setFxParam("delay", "mix", 0.6);
+      s.noteOn(300, 0);
+    }, 0.8);
+    const hits = onsets(buf.getChannelData(0), buf.sampleRate, 0.05, 0.08);
+    expect(hits.length).toBeGreaterThanOrEqual(2); // original + at least one echo
   });
 });
