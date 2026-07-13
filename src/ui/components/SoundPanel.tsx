@@ -49,7 +49,6 @@ const CODE_TO_NOTE: Record<string, string> = {
 const WAVES: SynthWaveform[] = ["sawtooth", "square", "triangle", "sine"];
 const FILTERS: { id: FilterType; label: string }[] = [
   { id: "lowpass", label: "LP" }, { id: "highpass", label: "HP" }, { id: "bandpass", label: "BP" },
-  { id: "off", label: "OFF" },
 ];
 const FX_CHAIN_LABELS: Record<FxId, string> = { drive: "DRIVE", wah: "WAH", delay: "DELAY", reverb: "REV" };
 
@@ -107,7 +106,13 @@ export function SoundPanel({ system, active }: Props) {
     setParams((p) => ({ ...p, [key]: value }));
   };
   const chooseWave = (w: SynthWaveform) => { s.setWaveform(w); setWave(w); };
-  const chooseFilter = (t: FilterType) => { s.setFilterType(t); setFilterTypeState(t); };
+  // Clicking the lit filter chip again turns the filter off (bypass); no lit
+  // chip = off. There is no dedicated OFF button.
+  const chooseFilter = (t: FilterType) => {
+    const next: FilterType = filterType === t ? "off" : t;
+    s.setFilterType(next);
+    setFilterTypeState(next);
+  };
   const toggleFx = (id: FxId) => {
     const next = !fxOn[id];
     s.setFxEnabled(id, next);
@@ -223,7 +228,15 @@ export function SoundPanel({ system, active }: Props) {
           <span className="select-label">FILTER</span>
           <div className="filt-row">
             {FILTERS.map((f) => (
-              <button key={f.id} type="button" className={`chip${filterType === f.id ? " on" : ""}`} onClick={() => chooseFilter(f.id)}>{f.label}</button>
+              <button
+                key={f.id}
+                type="button"
+                className={`chip${filterType === f.id ? " on" : ""}`}
+                aria-pressed={filterType === f.id}
+                onClick={() => chooseFilter(f.id)}
+              >
+                {f.label}
+              </button>
             ))}
           </div>
           <SpectrumScope sound={s} running={active} />
