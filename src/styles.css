@@ -201,10 +201,11 @@ html, body { height: 100%; }
 
 /* ===================== chips / mini buttons / native controls ===================== */
 
-.select-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.select-row { display: flex; gap: 12px 28px; align-items: center; flex-wrap: wrap; }
+.select-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .select-label { font-size: 9px; letter-spacing: 0.24em; color: var(--muted); margin-right: 4px; }
 .chip {
-  flex: 1; text-align: center; padding: 9px 10px; border-radius: 4px;
+  flex: 0 0 auto; min-width: 84px; text-align: center; padding: 9px 14px; border-radius: 4px;
   font-size: 10px; letter-spacing: 0.12em; background: var(--btn); color: var(--muted);
   border: 1px solid var(--btn-border); cursor: pointer; box-shadow: var(--btn-shadow);
 }
@@ -283,6 +284,10 @@ input[type="range"]::-moz-range-thumb {
 .preset-actions button:disabled { opacity: 0.4; cursor: default; }
 
 .sound-center { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
+.center-controls {
+  background: var(--plate); border: 1px solid var(--plate-border); border-radius: 8px;
+  padding: 16px; box-shadow: var(--plate-shadow); display: flex; flex-direction: column; gap: 14px;
+}
 
 .octave { display: flex; align-items: center; gap: 10px; }
 .octave span:first-child { font-size: 9px; letter-spacing: 0.24em; color: var(--muted); }

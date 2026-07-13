@@ -145,6 +145,27 @@ export function SoundPanel({ system, active }: Props) {
 
       <div className="sound-center">
         <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
+        <div className="center-controls">
+          <div className="select-row">
+            <span className="select-group">
+              <span className="select-label">OSC WAVE</span>
+              {WAVES.map((w) => (
+                <button key={w} type="button" className={`chip${wave === w ? " on" : ""}`} onClick={() => chooseWave(w)}>{w}</button>
+              ))}
+            </span>
+            <span className="select-group">
+              <span className="select-label">FILTER</span>
+              {FILTERS.map((f) => (
+                <button key={f.id} type="button" className={`chip${filterType === f.id ? " on" : ""}`} onClick={() => chooseFilter(f.id)}>{f.label}</button>
+              ))}
+            </span>
+          </div>
+          <div className="knob-row">
+            {SYNTH_SPECS.map((spec) => (
+              <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
+            ))}
+          </div>
+        </div>
         <div className="octave">
           <span>OCTAVE</span>
           <button type="button" onClick={() => setOctave((o) => Math.max(-3, o - 1))}>−</button>
@@ -190,22 +211,6 @@ export function SoundPanel({ system, active }: Props) {
       </div>
 
       <div className="sound-controls">
-        <div className="select-row">
-          {WAVES.map((w) => (
-            <button key={w} type="button" className={`chip${wave === w ? " on" : ""}`} onClick={() => chooseWave(w)}>{w}</button>
-          ))}
-        </div>
-        <div className="select-row">
-          <span className="select-label">FILTER</span>
-          {FILTERS.map((f) => (
-            <button key={f.id} type="button" className={`chip${filterType === f.id ? " on" : ""}`} onClick={() => chooseFilter(f.id)}>{f.label}</button>
-          ))}
-        </div>
-        <div className="knob-row">
-          {SYNTH_SPECS.map((spec) => (
-            <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
-          ))}
-        </div>
         <div className="fx-section">
           <div className="fx-chain">
             <span className="select-label">FX CHAIN</span>
