@@ -51,12 +51,16 @@ const FILTERS: { id: FilterType; label: string }[] = [
 ];
 const FX_CHAIN_LABELS: Record<FxId, string> = { drive: "DRIVE", wah: "WAH", delay: "DELAY", reverb: "REV" };
 
+// UI-preference key for the FX section collapse (plain localStorage — this is
+// cosmetic view state, not sound data, so it skips the StorageAdapter).
+const FX_OPEN_KEY = "lab1:ui:fxOpen";
+
 interface Props {
   system: AudioSystem;
   active: boolean;
 }
 
-/** SOUND tab: 3 columns — presets (left), scope+keyboard (center), controls (right). */
+/** SOUND tab: presets (left) / knobs+keyboard (center) / scope+chips+FX (right). */
 export function SoundPanel({ system, active }: Props) {
   const s = system.sound;
   const [wave, setWave] = useState<SynthWaveform>(s.getWaveform());
@@ -66,8 +70,26 @@ export function SoundPanel({ system, active }: Props) {
   const [fxParams, setFxParams] = useState<Record<FxId, Record<string, number>>>(() => ({
     drive: fxDefaults("drive"), wah: fxDefaults("wah"), delay: fxDefaults("delay"), reverb: fxDefaults("reverb"),
   }));
+  const [fxOpen, setFxOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(FX_OPEN_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  });
   const held = useRef<Set<string>>(new Set());
   const keyboardRef = useRef<HTMLDivElement>(null);
+
+  const toggleFxOpen = () => {
+    setFxOpen((open) => {
+      try {
+        window.localStorage.setItem(FX_OPEN_KEY, open ? "0" : "1");
+      } catch {
+        /* view state only — fine to lose */
+      }
+      return !open;
+    });
+  };
 
   // Start the key strip centered on the middle octave when it overflows.
   useEffect(() => {
@@ -140,22 +162,7 @@ export function SoundPanel({ system, active }: Props) {
       <PresetControls store={system.presets} getCurrent={(name) => s.toPreset(name)} onApply={applyPreset} />
 
       <div className="sound-center">
-        <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
         <div className="center-controls">
-          <div className="select-row">
-            <span className="select-group">
-              <span className="select-label">OSC WAVE</span>
-              {WAVES.map((w) => (
-                <button key={w} type="button" className={`chip${wave === w ? " on" : ""}`} onClick={() => chooseWave(w)}>{w}</button>
-              ))}
-            </span>
-            <span className="select-group">
-              <span className="select-label">FILTER</span>
-              {FILTERS.map((f) => (
-                <button key={f.id} type="button" className={`chip${filterType === f.id ? " on" : ""}`} onClick={() => chooseFilter(f.id)}>{f.label}</button>
-              ))}
-            </span>
-          </div>
           <div className="knob-row">
             {SYNTH_SPECS.map((spec) => (
               <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
@@ -196,40 +203,74 @@ export function SoundPanel({ system, active }: Props) {
             </div>
           </div>
         </div>
-        <div className="keyboard-hint">A W S E D F T G Y H U J K</div>
+        <div className="keyboard-hint">A W S E D F T G Y H U J K　·　C3–C6 HORIZONTAL SCROLL</div>
       </div>
 
       <div className="sound-controls">
-        <div className="fx-section">
-          <div className="fx-chain">
-            <span className="select-label">FX CHAIN</span>
-            <span className="fx-chain-seg">IN</span>
-            {FX_DEFS.map((def) => (
-              <span key={def.id} className="fx-chain-seg-wrap">
-                <span className="fx-chain-arrow">›</span>
-                <span className={`fx-chain-seg${fxOn[def.id] ? " on" : ""}`}>{FX_CHAIN_LABELS[def.id]}</span>
-              </span>
-            ))}
-            <span className="fx-chain-arrow">›</span>
-            <span className="fx-chain-seg">OUT</span>
-          </div>
-          <div className="fx-rack">
-            {FX_DEFS.map((def) => (
-              <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
-                <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
-                  <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
-                  <span className="fx-name">{def.label}</span>
-                  <span className="fx-state">{fxOn[def.id] ? "ON" : "OFF"}</span>
-                </button>
-                <div className="knob-row">
-                  {def.params.map((spec) => (
-                    <Knob key={spec.key} spec={spec} size="sm" value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
-                  ))}
-                </div>
-              </div>
+        <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
+
+        <div className="select-col">
+          <span className="select-label">OSC WAVE</span>
+          <div className="wave-grid">
+            {WAVES.map((w) => (
+              <button key={w} type="button" className={`chip${wave === w ? " on" : ""}`} onClick={() => chooseWave(w)}>{w}</button>
             ))}
           </div>
         </div>
+        <div className="select-col">
+          <span className="select-label">FILTER</span>
+          <div className="filt-row">
+            {FILTERS.map((f) => (
+              <button key={f.id} type="button" className={`chip${filterType === f.id ? " on" : ""}`} onClick={() => chooseFilter(f.id)}>{f.label}</button>
+            ))}
+          </div>
+        </div>
+
+        {fxOpen ? (
+          <div className="fx-section">
+            <div className="fx-head">
+              <span className="select-label">FX CHAIN</span>
+              <button type="button" className="fx-collapse" onClick={toggleFxOpen} aria-label="collapse FX" aria-expanded="true">»</button>
+            </div>
+            <div className="fx-chain">
+              <span className="fx-chain-seg">IN</span>
+              {FX_DEFS.map((def) => (
+                <span key={def.id} className="fx-chain-seg-wrap">
+                  <span className="fx-chain-arrow">›</span>
+                  <span className={`fx-chain-seg${fxOn[def.id] ? " on" : ""}`}>{FX_CHAIN_LABELS[def.id]}</span>
+                </span>
+              ))}
+              <span className="fx-chain-arrow">›</span>
+              <span className="fx-chain-seg">OUT</span>
+            </div>
+            <div className="fx-rack">
+              {FX_DEFS.map((def) => (
+                <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
+                  <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
+                    <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
+                    <span className="fx-name">{def.label}</span>
+                    <span className="fx-state">{fxOn[def.id] ? "ON" : "OFF"}</span>
+                  </button>
+                  <div className="knob-row">
+                    {def.params.map((spec) => (
+                      <Knob key={spec.key} spec={spec} size="sm" value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="fx-collapsed">
+            <span className="select-label">FX CHAIN</span>
+            <span className="fx-collapsed-leds">
+              {FX_DEFS.map((def) => (
+                <span key={def.id} className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
+              ))}
+            </span>
+            <button type="button" className="fx-collapse" onClick={toggleFxOpen} aria-label="expand FX" aria-expanded="false">«</button>
+          </div>
+        )}
       </div>
     </div>
   );
