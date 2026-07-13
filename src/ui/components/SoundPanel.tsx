@@ -8,13 +8,13 @@ import { Knob } from "./Knob";
 import { Oscilloscope } from "./Oscilloscope";
 import { PresetControls } from "./PresetControls";
 
-// Keyboard geometry: fixed-width keys over three rendered octaves (C3..C6);
+// Keyboard geometry: fixed-width keys over five rendered octaves (C2..C7);
 // anything wider than the column scrolls horizontally. Black keys sit centered
 // on the boundary `at` white keys into their octave (none between E/F, B/C).
 const WHITE_W = 44;
 const KEY_GAP = 3;
 const BLACK_W = 26;
-const RENDER_OCTS = [3, 4, 5];
+const RENDER_OCTS = [2, 3, 4, 5, 6];
 const OCT_WHITE = ["C", "D", "E", "F", "G", "A", "B"];
 const OCT_BLACK = [
   { n: "C#", at: 1 },
@@ -27,7 +27,7 @@ const OCT_BLACK = [
 const WHITE_KEYS: { note: string }[] = RENDER_OCTS.flatMap((o) =>
   OCT_WHITE.map((n) => ({ note: `${n}${o}` }))
 );
-WHITE_KEYS.push({ note: "C6" });
+WHITE_KEYS.push({ note: "C7" });
 
 const BLACK_KEYS: { note: string; left: number }[] = RENDER_OCTS.flatMap((o, oi) =>
   OCT_BLACK.map((b) => ({
@@ -203,7 +203,7 @@ export function SoundPanel({ system, active }: Props) {
             </div>
           </div>
         </div>
-        <div className="keyboard-hint">A W S E D F T G Y H U J K　·　C3–C6 HORIZONTAL SCROLL</div>
+        <div className="keyboard-hint">A W S E D F T G Y H U J K　·　C2–C7 HORIZONTAL SCROLL</div>
       </div>
 
       <div className="sound-controls">
