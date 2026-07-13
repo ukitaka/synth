@@ -3,7 +3,7 @@
 // Kept free of React/Tone so the engine stays UI-independent and testable.
 
 export type SynthWaveform = "sawtooth" | "square" | "triangle" | "sine";
-export type FilterType = "lowpass" | "highpass" | "bandpass";
+export type FilterType = "lowpass" | "highpass" | "bandpass" | "off";
 export type FxId = "drive" | "wah" | "delay" | "reverb";
 
 /**

@@ -49,6 +49,7 @@ const CODE_TO_NOTE: Record<string, string> = {
 const WAVES: SynthWaveform[] = ["sawtooth", "square", "triangle", "sine"];
 const FILTERS: { id: FilterType; label: string }[] = [
   { id: "lowpass", label: "LP" }, { id: "highpass", label: "HP" }, { id: "bandpass", label: "BP" },
+  { id: "off", label: "OFF" },
 ];
 const FX_CHAIN_LABELS: Record<FxId, string> = { drive: "DRIVE", wah: "WAH", delay: "DELAY", reverb: "REV" };
 

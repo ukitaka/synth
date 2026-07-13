@@ -25,6 +25,12 @@ describe("parseSound", () => {
     expect(parseSound({ ...blankPreset("x"), filterType: "notch" }).ok).toBe(false);
   });
 
+  it("accepts filterType off (bypass)", () => {
+    const res = parseSound({ ...blankPreset("x"), filterType: "off" });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.value.filterType).toBe("off");
+  });
+
   it("rejects an out-of-range param with key + range in the message", () => {
     const p = blankPreset("x");
     p.params.cutoff = 99999; // max is 12000

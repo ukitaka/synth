@@ -12,7 +12,7 @@ const SWING_MAX = 0.75;
 const BPM_MIN = 40;
 const BPM_MAX = 220;
 const WAVES: SynthWaveform[] = ["sawtooth", "square", "triangle", "sine"];
-const FILTERS: FilterType[] = ["lowpass", "highpass", "bandpass"];
+const FILTERS: FilterType[] = ["lowpass", "highpass", "bandpass", "off"];
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

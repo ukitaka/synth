@@ -23,6 +23,8 @@ export class SoundEngine {
   private readonly oscGain: Tone.Gain;
   private readonly noiseGain: Tone.Gain;
   private readonly filter: Tone.Filter;
+  private readonly filtGain: Tone.Gain; // filtered path level (1 unless OFF)
+  private readonly bypassGain: Tone.Gain; // dry path level (1 when filter OFF)
   private readonly amp: Tone.AmplitudeEnvelope;
   private readonly pitchEnv: Tone.FrequencyEnvelope;
   private readonly filterEnv: Tone.FrequencyEnvelope;
@@ -61,9 +63,18 @@ export class SoundEngine {
 
     this.osc.connect(this.oscGain);
     this.noise.connect(this.noiseGain);
+    // Two parallel paths into the amp: through the filter (default) and a dry
+    // bypass. Filter type "off" crossfades to the dry path — a true bypass,
+    // unlike opening the cutoff, which our 12kHz max never fully achieves.
+    this.filtGain = new Tone.Gain(1);
+    this.bypassGain = new Tone.Gain(0);
     this.oscGain.connect(this.filter);
     this.noiseGain.connect(this.filter);
-    this.filter.connect(this.amp);
+    this.oscGain.connect(this.bypassGain);
+    this.noiseGain.connect(this.bypassGain);
+    this.filter.connect(this.filtGain);
+    this.filtGain.connect(this.amp);
+    this.bypassGain.connect(this.amp);
     this.amp.connect(this.out);
 
     this.pitchEnv.connect(this.osc.frequency);
@@ -96,6 +107,10 @@ export class SoundEngine {
    * cutoff; a filter-envelope sweep momentarily sits above it.
    */
   getFilterResponse(freqs: Float32Array<ArrayBuffer>, magOut: Float32Array<ArrayBuffer>): void {
+    if (this.filterType === "off") {
+      magOut.fill(1); // bypassed: flat 0 dB line
+      return;
+    }
     this.probe.type = this.filterType;
     this.probe.frequency.value = this.params.cutoff;
     this.probe.Q.value = this.params.reso;
@@ -115,7 +130,15 @@ export class SoundEngine {
 
   setFilterType(t: FilterType): void {
     this.filterType = t;
-    this.filter.type = t;
+    if (t === "off") {
+      // short crossfade so toggling mid-note doesn't click
+      this.filtGain.gain.rampTo(0, 0.02);
+      this.bypassGain.gain.rampTo(1, 0.02);
+    } else {
+      this.filter.type = t;
+      this.filtGain.gain.rampTo(1, 0.02);
+      this.bypassGain.gain.rampTo(0, 0.02);
+    }
   }
   getFilterType(): FilterType {
     return this.filterType;
@@ -245,6 +268,8 @@ export class SoundEngine {
     this.amp.dispose();
     this.pitchEnv.dispose();
     this.filterEnv.dispose();
+    this.filtGain.dispose();
+    this.bypassGain.dispose();
     this.fft.dispose();
     this.out.dispose();
     this.fx.dispose();
