@@ -251,7 +251,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* ===================== SOUND tab: 3 columns ===================== */
 
-.sound-tab { display: grid; grid-template-columns: 210px minmax(0, 1fr) 400px; gap: 14px; align-items: stretch; height: 100%; }
+.sound-tab { display: grid; grid-template-columns: 210px minmax(0, 1fr) 400px; gap: 14px 22px; align-items: stretch; height: 100%; }
 
 .preset-col {
   background: var(--plate); border: 1px solid var(--plate-border); border-radius: 8px;
