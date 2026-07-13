@@ -241,8 +241,8 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 4px; padding: 8px 10px; line-height: 1.5;
 }
 
-/* generic small square button (mute / audition / remove / octave +- ) */
-.mini, .octave button {
+/* generic small square button (mute / audition / remove) */
+.mini {
   width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
   background: var(--btn); color: var(--ink); border: 1px solid var(--btn-border);
   border-radius: 4px; cursor: pointer; font-size: 12px; box-shadow: var(--btn-shadow);
@@ -288,15 +288,6 @@ input[type="range"]::-moz-range-thumb {
   background: var(--plate); border: 1px solid var(--plate-border); border-radius: 8px;
   padding: 16px; box-shadow: var(--plate-shadow); display: flex; flex-direction: column; gap: 14px;
 }
-
-.octave { display: flex; align-items: center; gap: 10px; }
-.octave span:first-child { font-size: 9px; letter-spacing: 0.24em; color: var(--muted); }
-.octave button { width: 34px; height: 34px; font-size: 15px; }
-.octave-val {
-  min-width: 52px; text-align: center; font-size: 12px; color: var(--accent);
-  background: var(--well); border-radius: 4px; padding: 8px 0; box-shadow: var(--well-shadow);
-}
-.octave-hint { margin-left: auto; font-size: 9px; letter-spacing: 0.12em; color: var(--off); }
 
 /* Fixed-width keys over three octaves; anything wider than the column scrolls
    inside the well (the strip is centered while it still fits). */
@@ -469,6 +460,6 @@ input[type="range"]::-moz-range-thumb {
 
 @media (max-width: 480px) {
   .knob-row { gap: 10px; justify-content: space-between; }
-  .mini, .octave button { width: 44px; height: 44px; }
+  .mini { width: 44px; height: 44px; }
   .pkey { min-width: 0; }
 }

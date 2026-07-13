@@ -39,7 +39,7 @@ const BLACK_KEYS: { note: string; left: number }[] = RENDER_OCTS.flatMap((o, oi)
 
 const KEYS_WIDTH = WHITE_KEYS.length * WHITE_W + (WHITE_KEYS.length - 1) * KEY_GAP;
 
-// PC keys play the middle rendered octave (C4..C5), shifted by the OCT control.
+// PC keys play the middle rendered octave (C4..C5).
 const CODE_TO_NOTE: Record<string, string> = {
   KeyA: "C4", KeyW: "C#4", KeyS: "D4", KeyE: "D#4", KeyD: "E4", KeyF: "F4",
   KeyT: "F#4", KeyG: "G4", KeyY: "G#4", KeyH: "A4", KeyU: "A#4", KeyJ: "B4", KeyK: "C5",
@@ -61,7 +61,6 @@ export function SoundPanel({ system, active }: Props) {
   const s = system.sound;
   const [wave, setWave] = useState<SynthWaveform>(s.getWaveform());
   const [filterType, setFilterTypeState] = useState<FilterType>(s.getFilterType());
-  const [octave, setOctave] = useState(0);
   const [params, setParams] = useState<Record<string, number>>(() => s.getParams());
   const [fxOn, setFxOn] = useState<Record<FxId, boolean>>({ drive: false, wah: false, delay: false, reverb: false });
   const [fxParams, setFxParams] = useState<Record<FxId, Record<string, number>>>(() => ({
@@ -76,8 +75,7 @@ export function SoundPanel({ system, active }: Props) {
     if (el) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
   }, []);
 
-  const freqOf = (note: string) => Tone.Frequency(note).transpose(octave * 12).toFrequency();
-  const noteOn = (note: string) => s.noteOn(freqOf(note));
+  const noteOn = (note: string) => s.noteOn(Tone.Frequency(note).toFrequency());
   const noteOff = () => s.noteOff();
 
   const setParam = (key: string, value: number) => {
@@ -117,8 +115,6 @@ export function SoundPanel({ system, active }: Props) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "SELECT") return;
       if (e.repeat) return;
-      if (e.code === "KeyZ") return setOctave((o) => Math.max(-3, o - 1));
-      if (e.code === "KeyX") return setOctave((o) => Math.min(3, o + 1));
       const note = CODE_TO_NOTE[e.code];
       if (!note) return;
       held.current.add(note);
@@ -137,7 +133,7 @@ export function SoundPanel({ system, active }: Props) {
       window.removeEventListener("keyup", up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, octave]);
+  }, [active]);
 
   return (
     <div className="sound-tab">
@@ -165,13 +161,6 @@ export function SoundPanel({ system, active }: Props) {
               <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
             ))}
           </div>
-        </div>
-        <div className="octave">
-          <span>OCTAVE</span>
-          <button type="button" onClick={() => setOctave((o) => Math.max(-3, o - 1))}>−</button>
-          <span className="octave-val">{octave >= 0 ? `+${octave}` : octave}</span>
-          <button type="button" onClick={() => setOctave((o) => Math.min(3, o + 1))}>＋</button>
-          <span className="octave-hint">Z / X</span>
         </div>
         <div className="keyboard" ref={keyboardRef}>
           <div className="keys-scroll" style={{ width: KEYS_WIDTH }}>
