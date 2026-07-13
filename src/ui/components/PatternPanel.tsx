@@ -182,7 +182,7 @@ export function PatternPanel({ system, active }: Props) {
         ))}
       </div>
 
-      <button type="button" className="add-track" onClick={addTrack}>＋ トラック追加</button>
+      <button type="button" className="add-track" onClick={addTrack}>＋ ADD TRACK</button>
     </div>
   );
 }

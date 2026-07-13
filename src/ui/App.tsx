@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AudioSystem, type Mode } from "../engine/AudioSystem";
 import { SoundPanel } from "./components/SoundPanel";
 import { PatternPanel } from "./components/PatternPanel";
 
 export function App() {
   const system = useMemo(() => new AudioSystem(), []);
+  // The UI is live from the start; `powered` only tracks whether the
+  // AudioContext has actually been resumed (browsers require a user gesture).
   const [powered, setPowered] = useState(false);
   const [mode, setMode] = useState<Mode>("SOUND");
 
@@ -12,6 +14,19 @@ export function App() {
     await system.powerOn();
     setPowered(true);
   };
+
+  // Auto-start audio on the first interaction anywhere (pointer or key), so
+  // the panel behaves as if the power were on by default.
+  useEffect(() => {
+    const start = () => void powerOn();
+    window.addEventListener("pointerdown", start, { once: true });
+    window.addEventListener("keydown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const switchMode = (next: Mode) => {
     if (next === mode) return;
@@ -46,14 +61,13 @@ export function App() {
         </button>
       </header>
 
-      <main className={`panels${powered ? "" : " powered-off"}`}>
-        <div style={{ display: mode === "SOUND" ? "block" : "none" }}>
-          <SoundPanel system={system} active={powered && mode === "SOUND"} />
+      <main className="panels">
+        <div style={{ display: mode === "SOUND" ? "block" : "none", height: "100%" }}>
+          <SoundPanel system={system} active={mode === "SOUND"} />
         </div>
-        <div style={{ display: mode === "PATTERN" ? "block" : "none" }}>
-          <PatternPanel system={system} active={powered && mode === "PATTERN"} />
+        <div style={{ display: mode === "PATTERN" ? "block" : "none", height: "100%" }}>
+          <PatternPanel system={system} active={mode === "PATTERN"} />
         </div>
-        {!powered && <div className="power-hint">POWER を押して音を有効にしてください</div>}
       </main>
     </div>
   );

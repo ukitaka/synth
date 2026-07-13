@@ -8,27 +8,42 @@ import { Knob } from "./Knob";
 import { Oscilloscope } from "./Oscilloscope";
 import { PresetControls } from "./PresetControls";
 
-// White keys: flex-equal row. Black keys: absolute, centered on the boundary
-// `at` white keys to their left (1-indexed boundary, matches a real keyboard —
-// no black key between E/F or B/C).
-const WHITE_KEYS = [
-  { note: "C4", code: "KeyA" },
-  { note: "D4", code: "KeyS" },
-  { note: "E4", code: "KeyD" },
-  { note: "F4", code: "KeyF" },
-  { note: "G4", code: "KeyG" },
-  { note: "A4", code: "KeyH" },
-  { note: "B4", code: "KeyJ" },
-  { note: "C5", code: "KeyK" },
+// Keyboard geometry: fixed-width keys over three rendered octaves (C3..C6);
+// anything wider than the column scrolls horizontally. Black keys sit centered
+// on the boundary `at` white keys into their octave (none between E/F, B/C).
+const WHITE_W = 44;
+const KEY_GAP = 3;
+const BLACK_W = 26;
+const RENDER_OCTS = [3, 4, 5];
+const OCT_WHITE = ["C", "D", "E", "F", "G", "A", "B"];
+const OCT_BLACK = [
+  { n: "C#", at: 1 },
+  { n: "D#", at: 2 },
+  { n: "F#", at: 4 },
+  { n: "G#", at: 5 },
+  { n: "A#", at: 6 },
 ];
-const BLACK_KEYS = [
-  { note: "C#4", code: "KeyW", at: 1 },
-  { note: "D#4", code: "KeyE", at: 2 },
-  { note: "F#4", code: "KeyT", at: 4 },
-  { note: "G#4", code: "KeyY", at: 5 },
-  { note: "A#4", code: "KeyU", at: 6 },
-];
-const ALL_KEYS = [...WHITE_KEYS, ...BLACK_KEYS];
+
+const WHITE_KEYS: { note: string }[] = RENDER_OCTS.flatMap((o) =>
+  OCT_WHITE.map((n) => ({ note: `${n}${o}` }))
+);
+WHITE_KEYS.push({ note: "C6" });
+
+const BLACK_KEYS: { note: string; left: number }[] = RENDER_OCTS.flatMap((o, oi) =>
+  OCT_BLACK.map((b) => ({
+    note: `${b.n}${o}`,
+    // boundary between white keys (at-1) and (at) within this octave
+    left: (oi * 7 + b.at) * (WHITE_W + KEY_GAP) - KEY_GAP / 2 - BLACK_W / 2,
+  }))
+);
+
+const KEYS_WIDTH = WHITE_KEYS.length * WHITE_W + (WHITE_KEYS.length - 1) * KEY_GAP;
+
+// PC keys play the middle rendered octave (C4..C5), shifted by the OCT control.
+const CODE_TO_NOTE: Record<string, string> = {
+  KeyA: "C4", KeyW: "C#4", KeyS: "D4", KeyE: "D#4", KeyD: "E4", KeyF: "F4",
+  KeyT: "F#4", KeyG: "G4", KeyY: "G#4", KeyH: "A4", KeyU: "A#4", KeyJ: "B4", KeyK: "C5",
+};
 
 const WAVES: SynthWaveform[] = ["sawtooth", "square", "triangle", "sine"];
 const FILTERS: { id: FilterType; label: string }[] = [
@@ -53,6 +68,13 @@ export function SoundPanel({ system, active }: Props) {
     drive: fxDefaults("drive"), wah: fxDefaults("wah"), delay: fxDefaults("delay"), reverb: fxDefaults("reverb"),
   }));
   const held = useRef<Set<string>>(new Set());
+  const keyboardRef = useRef<HTMLDivElement>(null);
+
+  // Start the key strip centered on the middle octave when it overflows.
+  useEffect(() => {
+    const el = keyboardRef.current;
+    if (el) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+  }, []);
 
   const freqOf = (note: string) => Tone.Frequency(note).transpose(octave * 12).toFrequency();
   const noteOn = (note: string) => s.noteOn(freqOf(note));
@@ -97,15 +119,15 @@ export function SoundPanel({ system, active }: Props) {
       if (e.repeat) return;
       if (e.code === "KeyZ") return setOctave((o) => Math.max(-3, o - 1));
       if (e.code === "KeyX") return setOctave((o) => Math.min(3, o + 1));
-      const k = ALL_KEYS.find((x) => x.code === e.code);
-      if (!k) return;
-      held.current.add(k.note);
-      noteOn(k.note);
+      const note = CODE_TO_NOTE[e.code];
+      if (!note) return;
+      held.current.add(note);
+      noteOn(note);
     };
     const up = (e: KeyboardEvent) => {
-      const k = ALL_KEYS.find((x) => x.code === e.code);
-      if (!k) return;
-      held.current.delete(k.note);
+      const note = CODE_TO_NOTE[e.code];
+      if (!note) return;
+      held.current.delete(note);
       if (held.current.size === 0) noteOff();
     };
     window.addEventListener("keydown", down);
@@ -130,36 +152,38 @@ export function SoundPanel({ system, active }: Props) {
           <button type="button" onClick={() => setOctave((o) => Math.min(3, o + 1))}>＋</button>
           <span className="octave-hint">Z / X</span>
         </div>
-        <div className="keyboard">
-          <div className="keys-white">
-            {WHITE_KEYS.map((k) => (
-              <button
-                key={k.note}
-                type="button"
-                className="pkey"
-                style={{ touchAction: "none" }}
-                onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
-                onPointerUp={noteOff}
-                onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
-              >
-                <span className="pkey-label">{k.note}</span>
-              </button>
-            ))}
-          </div>
-          <div className="keys-black">
-            {BLACK_KEYS.map((k) => (
-              <button
-                key={k.note}
-                type="button"
-                className="pkey sharp"
-                style={{ touchAction: "none", left: `calc(${12.5 * k.at}% - 4.8%)` }}
-                onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
-                onPointerUp={noteOff}
-                onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
-              >
-                <span className="pkey-label">{k.note}</span>
-              </button>
-            ))}
+        <div className="keyboard" ref={keyboardRef}>
+          <div className="keys-scroll" style={{ width: KEYS_WIDTH }}>
+            <div className="keys-white">
+              {WHITE_KEYS.map((k) => (
+                <button
+                  key={k.note}
+                  type="button"
+                  className="pkey"
+                  style={{ touchAction: "none" }}
+                  onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
+                  onPointerUp={noteOff}
+                  onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
+                >
+                  <span className="pkey-label">{k.note}</span>
+                </button>
+              ))}
+            </div>
+            <div className="keys-black">
+              {BLACK_KEYS.map((k) => (
+                <button
+                  key={k.note}
+                  type="button"
+                  className="pkey sharp"
+                  style={{ touchAction: "none", left: k.left }}
+                  onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
+                  onPointerUp={noteOff}
+                  onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
+                >
+                  <span className="pkey-label">{k.note}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="keyboard-hint">A W S E D F T G Y H U J K</div>

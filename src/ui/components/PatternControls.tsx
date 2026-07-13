@@ -89,11 +89,11 @@ export function PatternControls({ store, getCurrent, onApply }: Props) {
           </option>
         ))}
       </select>
-      <input className="kit-name" value={name} onChange={(e) => setName(e.target.value)} aria-label="pattern name" />
-      <button type="button" onClick={handleSave}>保存</button>
-      <button type="button" onClick={handleExport}>書出</button>
-      <button type="button" onClick={() => fileRef.current?.click()}>読込</button>
-      <button type="button" onClick={handleDelete} disabled={!selected || selected.isFactory}>削除</button>
+      <input className="kit-name" value={name} onChange={(e) => setName(e.target.value)} aria-label="pattern name" placeholder="NAME…" />
+      <button type="button" onClick={handleSave}>SAVE</button>
+      <button type="button" onClick={handleExport}>EXPORT</button>
+      <button type="button" onClick={() => fileRef.current?.click()}>IMPORT</button>
+      <button type="button" onClick={handleDelete} disabled={!selected || selected.isFactory}>DELETE</button>
       <input
         ref={fileRef}
         type="file"

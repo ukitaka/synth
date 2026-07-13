@@ -85,8 +85,8 @@ export function PresetControls({ store, getCurrent, onApply }: Props) {
   return (
     <div className="preset-col">
       <div className="preset-save">
-        <input value={name} onChange={(e) => setName(e.target.value)} aria-label="preset name" placeholder="name" />
-        <button type="button" onClick={save}>保存</button>
+        <input value={name} onChange={(e) => setName(e.target.value)} aria-label="preset name" placeholder="NAME…" />
+        <button type="button" onClick={save}>SAVE</button>
       </div>
       <div className="preset-list">
         {items.map((i) => (
@@ -102,9 +102,9 @@ export function PresetControls({ store, getCurrent, onApply }: Props) {
         ))}
       </div>
       <div className="preset-actions">
-        <button type="button" onClick={exportJson}>書出</button>
-        <button type="button" onClick={() => fileRef.current?.click()}>読込</button>
-        <button type="button" onClick={del} disabled={!selected || selected.isFactory}>削除</button>
+        <button type="button" onClick={exportJson}>EXPORT</button>
+        <button type="button" onClick={() => fileRef.current?.click()}>IMPORT</button>
+        <button type="button" onClick={del} disabled={!selected || selected.isFactory}>DELETE</button>
       </div>
       <input
         ref={fileRef}
