@@ -123,6 +123,9 @@ export function PatternPanel({ system, active }: Props) {
         <button type="button" className={`play-btn${playing ? " on" : ""}`} onClick={playStop}>
           {playing ? "■ STOP" : "▶ PLAY"}
         </button>
+        <span className="step-indicator">
+          STEP {playing && playhead >= 0 ? String(playhead + 1).padStart(2, "0") : "--"} / {pattern.length}
+        </span>
         <label className="transport-ctl">
           BPM
           <input type="number" min={40} max={220} value={Math.round(pattern.bpm)}
@@ -134,6 +137,18 @@ export function PatternPanel({ system, active }: Props) {
             onChange={(e) => setSwing(Number(e.target.value) / 100)} />
           <span>{Math.round(pattern.swing * 100)}%</span>
         </label>
+        <span className="track-count">{pattern.tracks.length} TRACK · {pattern.length} STEP</span>
+      </div>
+
+      <div className="step-ruler" aria-hidden="true">
+        <span className="step-ruler-gutter" />
+        <span className="step-ruler-cells">
+          {Array.from({ length: pattern.length }, (_, i) => (
+            <span key={i} className={`step-ruler-cell${i % 4 === 0 ? " beat" : ""}`}>
+              {i % 4 === 0 ? i / 4 + 1 : ""}
+            </span>
+          ))}
+        </span>
       </div>
 
       <div className="track-list">

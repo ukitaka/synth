@@ -4,6 +4,29 @@
 - 対象: LAB-1 の UI 全体(SOUND / PATTERN 両タブ)
 - 前提資料: `requirements.md` v2.0 / `design.md` v2.0
 - 作成日: 2026-07-13
+- ステータス: **実装済み**(Claude Design の確定案「LAB-1 Console 1b」を実装。2026-07-13)
+
+---
+
+## 0. 実装メモ
+
+Claude Design プロジェクト(`design/p/7f219d87-...`、ファイル `LAB-1 Console 1b.dc.html`)の
+確定案をそのまま `src/styles.css` 全面刷新 + 各コンポーネントの最小限の構造追加で実装した。
+
+- **フォント**: IBM Plex Mono(OFL)を `@fontsource/ibm-plex-mono` から 400/500/600/700 の
+  woff2 のみ抽出し `src/assets/fonts/` に同梱(ランタイム npm 依存には追加していない)。
+- **トークン**: `--bg/--chassis/--plate/--btn/--well/--accent/--led/--ink/--muted` に刷新。
+- **ノブ**: SVG のティックリング + 値アーク(stroke-dasharray)+ メタリックキャップ。
+  ドラッグ/ダブルクリック/aria の操作モデルは無変更。ホバー/ドラッグの明度アップは
+  `:hover`/`:active` の CSS のみで実現(JS 状態追加なし)。
+- **鍵盤**: 白鍵を flex 均等・黒鍵を `position:absolute`(`inset:<keyboard padding>` を基準に
+  白鍵と同じボックスへ重ねる)で再実装。
+- **FX チェーン表示・状態ラベル・ステップ定規・STEP n/16 表示**は指示書になかった追加要素。
+  デザイン原案の意図(信号経路を読ませる/拍を視覚化する)を汲んで実装時に加えた。
+- **モバイル FX アコーディオン**は静的 CSS(`@media` で先頭ユニット以外の `.knob-row` を
+  非表示)による簡易実装。タップでの開閉インタラクションは未実装(follow-up 候補)。
+- ブラウザ実機検証: プリセット読込→UI/エンジン同期、ノブドラッグ、PATTERN 再生時の
+  プレイヘッド(緑グロー)+ ON セル(橙)の重畳表示、POWER on/off の暗転を確認済み。
 
 ---
 

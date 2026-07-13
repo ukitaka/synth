@@ -4,13 +4,17 @@ import type { MasterBus } from "../../engine/MasterBus";
 interface Props {
   master: MasterBus;
   running: boolean;
+  /** Optional secondary label, top-right (e.g. "MASTER · PRE-CLIP"). */
+  sub?: string;
 }
 
 /**
- * Shared oscilloscope. Reads the master bus analyser each animation frame
- * (FR-012); rAF is used only for drawing, never for audio timing (NFR-02).
+ * Shared oscilloscope. Reads the master bus analyser each animation frame;
+ * rAF is used only for drawing, never for audio timing (NFR-02). The glow is a
+ * fixed canvas shadowBlur (cheap, no per-frame recomputation) rather than a
+ * CSS filter, to keep the redraw loop light.
  */
-export function Oscilloscope({ master, running }: Props) {
+export function Oscilloscope({ master, running, sub }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -26,8 +30,10 @@ export function Oscilloscope({ master, running }: Props) {
       const h = canvas.height;
       const data = master.getWaveform();
       ctx.clearRect(0, 0, w, h);
-      ctx.strokeStyle = "#7dffb0";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#52ff9d";
+      ctx.shadowColor = "#52ff9d";
+      ctx.shadowBlur = 6;
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       for (let i = 0; i < data.length; i++) {
         const x = (i / (data.length - 1)) * w;
@@ -42,5 +48,11 @@ export function Oscilloscope({ master, running }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [master, running]);
 
-  return <canvas ref={canvasRef} className="scope" width={520} height={90} />;
+  return (
+    <div className="scope-wrap">
+      <canvas ref={canvasRef} className="scope" width={520} height={90} />
+      <span className="scope-label">SCOPE</span>
+      {sub && <span className="scope-sub">{sub}</span>}
+    </div>
+  );
 }

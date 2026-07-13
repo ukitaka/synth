@@ -8,19 +8,33 @@ import { Knob } from "./Knob";
 import { Oscilloscope } from "./Oscilloscope";
 import { PresetControls } from "./PresetControls";
 
-const KEYS: { note: string; code: string; sharp: boolean }[] = [
-  { note: "C4", code: "KeyA", sharp: false }, { note: "C#4", code: "KeyW", sharp: true },
-  { note: "D4", code: "KeyS", sharp: false }, { note: "D#4", code: "KeyE", sharp: true },
-  { note: "E4", code: "KeyD", sharp: false }, { note: "F4", code: "KeyF", sharp: false },
-  { note: "F#4", code: "KeyT", sharp: true }, { note: "G4", code: "KeyG", sharp: false },
-  { note: "G#4", code: "KeyY", sharp: true }, { note: "A4", code: "KeyH", sharp: false },
-  { note: "A#4", code: "KeyU", sharp: true }, { note: "B4", code: "KeyJ", sharp: false },
-  { note: "C5", code: "KeyK", sharp: false },
+// White keys: flex-equal row. Black keys: absolute, centered on the boundary
+// `at` white keys to their left (1-indexed boundary, matches a real keyboard —
+// no black key between E/F or B/C).
+const WHITE_KEYS = [
+  { note: "C4", code: "KeyA" },
+  { note: "D4", code: "KeyS" },
+  { note: "E4", code: "KeyD" },
+  { note: "F4", code: "KeyF" },
+  { note: "G4", code: "KeyG" },
+  { note: "A4", code: "KeyH" },
+  { note: "B4", code: "KeyJ" },
+  { note: "C5", code: "KeyK" },
 ];
+const BLACK_KEYS = [
+  { note: "C#4", code: "KeyW", at: 1 },
+  { note: "D#4", code: "KeyE", at: 2 },
+  { note: "F#4", code: "KeyT", at: 4 },
+  { note: "G#4", code: "KeyY", at: 5 },
+  { note: "A#4", code: "KeyU", at: 6 },
+];
+const ALL_KEYS = [...WHITE_KEYS, ...BLACK_KEYS];
+
 const WAVES: SynthWaveform[] = ["sawtooth", "square", "triangle", "sine"];
 const FILTERS: { id: FilterType; label: string }[] = [
   { id: "lowpass", label: "LP" }, { id: "highpass", label: "HP" }, { id: "bandpass", label: "BP" },
 ];
+const FX_CHAIN_LABELS: Record<FxId, string> = { drive: "DRIVE", wah: "WAH", delay: "DELAY", reverb: "REV" };
 
 interface Props {
   system: AudioSystem;
@@ -83,13 +97,13 @@ export function SoundPanel({ system, active }: Props) {
       if (e.repeat) return;
       if (e.code === "KeyZ") return setOctave((o) => Math.max(-3, o - 1));
       if (e.code === "KeyX") return setOctave((o) => Math.min(3, o + 1));
-      const k = KEYS.find((x) => x.code === e.code);
+      const k = ALL_KEYS.find((x) => x.code === e.code);
       if (!k) return;
       held.current.add(k.note);
       noteOn(k.note);
     };
     const up = (e: KeyboardEvent) => {
-      const k = KEYS.find((x) => x.code === e.code);
+      const k = ALL_KEYS.find((x) => x.code === e.code);
       if (!k) return;
       held.current.delete(k.note);
       if (held.current.size === 0) noteOff();
@@ -108,28 +122,47 @@ export function SoundPanel({ system, active }: Props) {
       <PresetControls store={system.presets} getCurrent={(name) => s.toPreset(name)} onApply={applyPreset} />
 
       <div className="sound-center">
-        <Oscilloscope master={system.master} running={active} />
+        <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
         <div className="octave">
-          <span>OCT</span>
+          <span>OCTAVE</span>
           <button type="button" onClick={() => setOctave((o) => Math.max(-3, o - 1))}>−</button>
           <span className="octave-val">{octave >= 0 ? `+${octave}` : octave}</span>
-          <button type="button" onClick={() => setOctave((o) => Math.min(3, o + 1))}>+</button>
+          <button type="button" onClick={() => setOctave((o) => Math.min(3, o + 1))}>＋</button>
+          <span className="octave-hint">Z / X</span>
         </div>
         <div className="keyboard">
-          {KEYS.map((k) => (
-            <button
-              key={k.note}
-              type="button"
-              className={`pkey${k.sharp ? " sharp" : ""}`}
-              style={{ touchAction: "none" }}
-              onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
-              onPointerUp={noteOff}
-              onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
-            >
-              {k.note}
-            </button>
-          ))}
+          <div className="keys-white">
+            {WHITE_KEYS.map((k) => (
+              <button
+                key={k.note}
+                type="button"
+                className="pkey"
+                style={{ touchAction: "none" }}
+                onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
+                onPointerUp={noteOff}
+                onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
+              >
+                <span className="pkey-label">{k.note}</span>
+              </button>
+            ))}
+          </div>
+          <div className="keys-black">
+            {BLACK_KEYS.map((k) => (
+              <button
+                key={k.note}
+                type="button"
+                className="pkey sharp"
+                style={{ touchAction: "none", left: `calc(${12.5 * k.at}% - 4.8%)` }}
+                onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
+                onPointerUp={noteOff}
+                onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
+              >
+                <span className="pkey-label">{k.note}</span>
+              </button>
+            ))}
+          </div>
         </div>
+        <div className="keyboard-hint">A W S E D F T G Y H U J K</div>
       </div>
 
       <div className="sound-controls">
@@ -149,20 +182,35 @@ export function SoundPanel({ system, active }: Props) {
             <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
           ))}
         </div>
-        <div className="fx-rack">
-          {FX_DEFS.map((def) => (
-            <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
-              <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
-                <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
-                {def.label}
-              </button>
-              <div className="knob-row">
-                {def.params.map((spec) => (
-                  <Knob key={spec.key} spec={spec} value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
-                ))}
+        <div className="fx-section">
+          <div className="fx-chain">
+            <span className="select-label">FX CHAIN</span>
+            <span className="fx-chain-seg">IN</span>
+            {FX_DEFS.map((def) => (
+              <span key={def.id} className="fx-chain-seg-wrap">
+                <span className="fx-chain-arrow">›</span>
+                <span className={`fx-chain-seg${fxOn[def.id] ? " on" : ""}`}>{FX_CHAIN_LABELS[def.id]}</span>
+              </span>
+            ))}
+            <span className="fx-chain-arrow">›</span>
+            <span className="fx-chain-seg">OUT</span>
+          </div>
+          <div className="fx-rack">
+            {FX_DEFS.map((def) => (
+              <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
+                <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
+                  <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
+                  <span className="fx-name">{def.label}</span>
+                  <span className="fx-state">{fxOn[def.id] ? "ON" : "OFF"}</span>
+                </button>
+                <div className="knob-row">
+                  {def.params.map((spec) => (
+                    <Knob key={spec.key} spec={spec} size="sm" value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

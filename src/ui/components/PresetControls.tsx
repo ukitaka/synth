@@ -93,10 +93,11 @@ export function PresetControls({ store, getCurrent, onApply }: Props) {
           <button
             key={i.id}
             type="button"
-            className={`preset-item${selectedId === i.id ? " sel" : ""}`}
+            className={`preset-item${i.isFactory ? " factory" : ""}${selectedId === i.id ? " sel" : ""}`}
             onClick={() => load(i.id)}
           >
-            {i.isFactory ? `★ ${i.name}` : i.name}
+            <span className="preset-mark">{i.isFactory ? "★" : "·"}</span>
+            <span className="preset-name">{i.name}</span>
           </button>
         ))}
       </div>

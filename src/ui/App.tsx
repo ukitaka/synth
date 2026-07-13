@@ -23,6 +23,7 @@ export function App() {
     <div className="lab1">
       <header className="topbar">
         <span className="brand">LAB-1</span>
+        <span className="brand-sub">SUBTRACTIVE GROOVEBOX</span>
         <div className="mode-switch" role="tablist" aria-label="mode">
           {(["SOUND", "PATTERN"] as const).map((m) => (
             <button
@@ -38,19 +39,21 @@ export function App() {
           ))}
         </div>
         <button type="button" className={`power${powered ? " on" : ""}`} onClick={powerOn}>
-          ● POWER
+          <span className="power-led">
+            <span className="power-led-dot" />
+          </span>
+          <span>POWER</span>
         </button>
       </header>
 
-      {!powered && <div className="power-hint">POWER を押して音を有効にしてください</div>}
-
-      <main className="panels">
+      <main className={`panels${powered ? "" : " powered-off"}`}>
         <div style={{ display: mode === "SOUND" ? "block" : "none" }}>
           <SoundPanel system={system} active={powered && mode === "SOUND"} />
         </div>
         <div style={{ display: mode === "PATTERN" ? "block" : "none" }}>
           <PatternPanel system={system} active={powered && mode === "PATTERN"} />
         </div>
+        {!powered && <div className="power-hint">POWER を押して音を有効にしてください</div>}
       </main>
     </div>
   );
