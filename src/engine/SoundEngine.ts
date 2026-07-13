@@ -29,6 +29,12 @@ export class SoundEngine {
   private readonly out: Tone.Gain;
   readonly fx: FxChain;
 
+  /** FFT tap on the post-filter signal, for the spectrum display. */
+  private readonly fft: Tone.Analyser;
+  /** Unconnected biquad used only to compute the filter's response curve. */
+  private readonly probe: BiquadFilterNode;
+  private phaseScratch: Float32Array<ArrayBuffer> | null = null;
+
   private waveform: SynthWaveform = "sawtooth";
   private filterType: FilterType = "lowpass";
   private readonly params: Record<string, number> = synthDefaults();
@@ -63,7 +69,40 @@ export class SoundEngine {
     this.pitchEnv.connect(this.osc.frequency);
     this.filterEnv.connect(this.filter.frequency);
 
+    // Spectrum tap: post-filter/amp, pre-FX — shows exactly what the filter
+    // lets through, before drive/delay/reverb recolor it.
+    this.fft = new Tone.Analyser("fft", 1024);
+    this.fft.smoothing = 0.85;
+    this.amp.connect(this.fft);
+    this.probe = this.filter.context.rawContext.createBiquadFilter();
+
     for (const s of SYNTH_SPECS) this.applyParam(s.key, this.params[s.key]);
+  }
+
+  /** dB per FFT bin (bin i covers i * sampleRate/2 / length Hz). */
+  getSpectrum(): Float32Array {
+    return this.fft.getValue() as Float32Array;
+  }
+
+  get sampleRate(): number {
+    return this.filter.context.sampleRate;
+  }
+
+  /**
+   * Magnitude response of the current filter settings at `freqs`, written into
+   * `magOut` (linear gain). Computed on a detached probe biquad because the
+   * live filter's frequency param is signal-driven (base 0 + envelope), which
+   * makes its own getFrequencyResponse read wrong. The curve shows the at-rest
+   * cutoff; a filter-envelope sweep momentarily sits above it.
+   */
+  getFilterResponse(freqs: Float32Array<ArrayBuffer>, magOut: Float32Array<ArrayBuffer>): void {
+    this.probe.type = this.filterType;
+    this.probe.frequency.value = this.params.cutoff;
+    this.probe.Q.value = this.params.reso;
+    if (!this.phaseScratch || this.phaseScratch.length !== freqs.length) {
+      this.phaseScratch = new Float32Array(freqs.length);
+    }
+    this.probe.getFrequencyResponse(freqs, magOut, this.phaseScratch);
   }
 
   setWaveform(w: SynthWaveform): void {
@@ -206,6 +245,7 @@ export class SoundEngine {
     this.amp.dispose();
     this.pitchEnv.dispose();
     this.filterEnv.dispose();
+    this.fft.dispose();
     this.out.dispose();
     this.fx.dispose();
   }

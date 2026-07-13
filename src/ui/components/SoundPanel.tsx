@@ -6,6 +6,7 @@ import { SYNTH_SPECS } from "../../engine/synthSpecs";
 import { FX_DEFS, fxDefaults, type FxId } from "../../engine/fx/fxSpecs";
 import { Knob } from "./Knob";
 import { Oscilloscope } from "./Oscilloscope";
+import { SpectrumScope } from "./SpectrumScope";
 import { PresetControls } from "./PresetControls";
 
 // Keyboard geometry: fixed-width keys over five rendered octaves (C2..C7);
@@ -224,6 +225,7 @@ export function SoundPanel({ system, active }: Props) {
               <button key={f.id} type="button" className={`chip${filterType === f.id ? " on" : ""}`} onClick={() => chooseFilter(f.id)}>{f.label}</button>
             ))}
           </div>
+          <SpectrumScope sound={s} running={active} />
         </div>
 
         {fxOpen ? (
