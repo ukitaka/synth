@@ -101,8 +101,13 @@ export function SoundPanel({ system, active }: Props) {
   const [repeating, setRepeating] = useState(false);
   const [repeatRate, setRepeatRate] = useState(0.25);
   const [lastNote, setLastNote] = useState("C4");
+  const [transpose, setTranspose] = useState(0); // semitones, ±12
   const held = useRef<Set<string>>(new Set());
   const keyboardRef = useRef<HTMLDivElement>(null);
+  // Mirrors for the global-keydown handler (its closure only re-binds on
+  // `active`, so it must not read these through stale state).
+  const transposeRef = useRef(0);
+  const lastNoteRef = useRef("C4");
 
   const chooseTab = (t: VoiceTab) => {
     setVoiceTab(t);
@@ -119,9 +124,13 @@ export function SoundPanel({ system, active }: Props) {
     if (el) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
   }, []);
 
+  const freqOf = (note: string) =>
+    Tone.Frequency(note).transpose(transposeRef.current).toFrequency();
+
   const noteOn = (note: string) => {
-    const freq = Tone.Frequency(note).toFrequency();
     setLastNote(note);
+    lastNoteRef.current = note;
+    const freq = freqOf(note);
     if (s.isRepeating()) s.setRepeatFreq(freq); // repeat follows the last key
     s.noteOn(freq);
   };
@@ -132,13 +141,21 @@ export function SoundPanel({ system, active }: Props) {
       s.stopRepeat();
       setRepeating(false);
     } else {
-      s.startRepeat(Tone.Frequency(lastNote).toFrequency(), repeatRate);
+      s.startRepeat(freqOf(lastNote), repeatRate);
       setRepeating(true);
     }
   };
   const chooseRate = (sec: number) => {
     setRepeatRate(sec);
-    if (repeating) s.startRepeat(Tone.Frequency(lastNote).toFrequency(), sec);
+    if (repeating) s.startRepeat(freqOf(lastNote), sec);
+  };
+
+  /** Shift played (and repeating) notes by semitones, clamped to ±12. */
+  const applyTranspose = (next: number) => {
+    const clamped = Math.max(-12, Math.min(12, next));
+    transposeRef.current = clamped;
+    setTranspose(clamped);
+    if (s.isRepeating()) s.setRepeatFreq(freqOf(lastNoteRef.current));
   };
 
   // Leaving the tab stops the repeat (AudioSystem also stops the engine side).
@@ -189,6 +206,8 @@ export function SoundPanel({ system, active }: Props) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "SELECT") return;
       if (e.repeat) return;
+      if (e.code === "KeyZ") return applyTranspose(transposeRef.current - 1);
+      if (e.code === "KeyX") return applyTranspose(transposeRef.current + 1);
       const note = CODE_TO_NOTE[e.code];
       if (!note) return;
       held.current.add(note);
@@ -358,7 +377,15 @@ export function SoundPanel({ system, active }: Props) {
                 </button>
               ))}
             </div>
-            <div className="repeat-note">{lastNote}</div>
+            <span className="dock-label">TRANSPOSE</span>
+            <div className="transpose-row">
+              <button type="button" className="mini" aria-label="transpose down" onClick={() => applyTranspose(transposeRef.current - 1)}>−</button>
+              <span className="transpose-val" title="semitones (Z / X)">{transpose >= 0 ? `+${transpose}` : transpose}</span>
+              <button type="button" className="mini" aria-label="transpose up" onClick={() => applyTranspose(transposeRef.current + 1)}>＋</button>
+            </div>
+            <div className="repeat-note" title="sounding note">
+              {Tone.Frequency(lastNote).transpose(transpose).toNote()}
+            </div>
           </div>
           <div className="keyboard" ref={keyboardRef}>
             <div className="keys-scroll" style={{ width: KEYS_WIDTH }}>
@@ -395,7 +422,7 @@ export function SoundPanel({ system, active }: Props) {
             </div>
           </div>
         </div>
-        <div className="keyboard-hint">A W S E D F T G Y H U J K　·　C2–C7 HORIZONTAL SCROLL</div>
+        <div className="keyboard-hint">A W S E D F T G Y H U J K　·　Z / X TRANSPOSE　·　C2–C7 HORIZONTAL SCROLL</div>
       </div>
     </div>
   );
