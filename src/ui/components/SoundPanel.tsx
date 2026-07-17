@@ -244,8 +244,11 @@ export function SoundPanel({ system, active }: Props) {
               </span>
             </div>
 
-            {voiceTab === "osc" && (
-              <>
+            {/* All three pages stay mounted, stacked in one grid cell; only
+                the active one is visible. The panel is always as tall as the
+                tallest page, so switching tabs never reflows the layout. */}
+            <div className="vtab-pages">
+              <div className={`vtab-page${voiceTab === "osc" ? " on" : ""}`}>
                 <div className="select-row">
                   <span className="select-group">
                     <span className="select-label">WAVE</span>
@@ -259,11 +262,9 @@ export function SoundPanel({ system, active }: Props) {
                     <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
                   ))}
                 </div>
-              </>
-            )}
+              </div>
 
-            {voiceTab === "filter" && (
-              <>
+              <div className={`vtab-page${voiceTab === "filter" ? " on" : ""}`}>
                 <div className="select-row">
                   <span className="select-group">
                     {FILTERS.map((f) => (
@@ -284,11 +285,9 @@ export function SoundPanel({ system, active }: Props) {
                     <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
                   ))}
                 </div>
-              </>
-            )}
+              </div>
 
-            {voiceTab === "fx" && (
-              <>
+              <div className={`vtab-page${voiceTab === "fx" ? " on" : ""}`}>
                 <div className="fx-chain">
                   <span className="fx-chain-seg">IN</span>
                   {FX_DEFS.map((def) => (
@@ -316,8 +315,8 @@ export function SoundPanel({ system, active }: Props) {
                     </div>
                   ))}
                 </div>
-              </>
-            )}
+              </div>
+            </div>
           </div>
 
           <div className="monitor-col">
