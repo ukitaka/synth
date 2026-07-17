@@ -51,6 +51,7 @@ export class AudioSystem {
       if (this.sequencer.isPlaying()) this.sequencer.stop();
       this.pattern.releaseAll();
     } else {
+      this.sound.stopRepeat();
       this.sound.releaseAll();
     }
   }

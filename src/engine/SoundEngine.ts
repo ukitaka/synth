@@ -41,6 +41,12 @@ export class SoundEngine {
   private filterType: FilterType = "lowpass";
   private readonly params: Record<string, number> = synthDefaults();
 
+  // Repeat playback (design-loop aid): retrigger the last note on a fixed
+  // interval, scheduled on the Transport's look-ahead (NFR-02).
+  private repeatId: number | null = null;
+  private repeatFreq = 261.63; // C4
+  private repeatInterval = 0.25;
+
   constructor(bus: Tone.Gain) {
     this.out = new Tone.Gain(0.7);
     this.fx = new FxChain();
@@ -248,6 +254,39 @@ export class SoundEngine {
 
   noteOff(time: number = Tone.now()): void {
     this.amp.triggerRelease(time);
+  }
+
+  /**
+   * Retrigger `freq` every `interval` seconds (Transport-scheduled, so it does
+   * not drift with UI load). The gate closes at 50% of the interval so
+   * sustained sounds pulse instead of holding.
+   */
+  startRepeat(freq: number, interval: number): void {
+    this.stopRepeat();
+    this.repeatFreq = freq;
+    this.repeatInterval = interval;
+    const t = Tone.getTransport();
+    this.repeatId = t.scheduleRepeat((time) => {
+      this.noteOn(this.repeatFreq, time);
+      this.noteOff(time + this.repeatInterval * 0.5);
+    }, interval);
+    t.start();
+  }
+
+  /** Follow the most recently played note while repeating. */
+  setRepeatFreq(freq: number): void {
+    this.repeatFreq = freq;
+  }
+
+  isRepeating(): boolean {
+    return this.repeatId !== null;
+  }
+
+  stopRepeat(): void {
+    if (this.repeatId !== null) {
+      Tone.getTransport().clear(this.repeatId);
+      this.repeatId = null;
+    }
   }
 
   releaseAll(time: number = Tone.now()): void {

@@ -290,6 +290,25 @@ input[type="range"]::-moz-range-thumb {
   padding: 16px; box-shadow: var(--plate-shadow); display: flex; flex-direction: column; gap: 14px;
 }
 
+/* repeat playback row (between the knob plate and the keyboard) */
+.repeat-row { display: flex; align-items: center; gap: 6px; }
+.repeat-btn {
+  display: flex; align-items: center; gap: 6px; padding: 9px 16px;
+  background: var(--btn); color: var(--muted); border: 1px solid var(--btn-border);
+  border-radius: 4px; cursor: pointer; font-size: 10px; letter-spacing: 0.14em; font-weight: 600;
+  box-shadow: var(--btn-shadow);
+}
+.repeat-btn.on {
+  background: var(--led); color: #08130c; border-color: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 14px rgba(82, 255, 157, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.repeat-row .chip { flex: 0 0 auto; min-width: 52px; padding: 9px 10px; }
+.repeat-note {
+  margin-left: auto; min-width: 44px; text-align: center; font-size: 11px; color: var(--accent);
+  background: var(--well); border: 1px solid var(--well-border); border-radius: 4px;
+  padding: 8px 10px; box-shadow: var(--well-shadow);
+}
+
 /* Fixed-width keys over three octaves; anything wider than the column scrolls
    inside the well (the strip is centered while it still fits). */
 .keyboard {

@@ -56,6 +56,13 @@ const FX_CHAIN_LABELS: Record<FxId, string> = { drive: "DRIVE", wah: "WAH", dela
 // cosmetic view state, not sound data, so it skips the StorageAdapter).
 const FX_OPEN_KEY = "lab1:ui:fxOpen";
 
+// Repeat rates in seconds (musical labels assume 120 BPM).
+const REPEAT_RATES = [
+  { label: "1/4", s: 0.5 },
+  { label: "1/8", s: 0.25 },
+  { label: "1/16", s: 0.125 },
+];
+
 interface Props {
   system: AudioSystem;
   active: boolean;
@@ -78,6 +85,9 @@ export function SoundPanel({ system, active }: Props) {
       return true;
     }
   });
+  const [repeating, setRepeating] = useState(false);
+  const [repeatRate, setRepeatRate] = useState(0.25);
+  const [lastNote, setLastNote] = useState("C4");
   const held = useRef<Set<string>>(new Set());
   const keyboardRef = useRef<HTMLDivElement>(null);
 
@@ -98,8 +108,32 @@ export function SoundPanel({ system, active }: Props) {
     if (el) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
   }, []);
 
-  const noteOn = (note: string) => s.noteOn(Tone.Frequency(note).toFrequency());
+  const noteOn = (note: string) => {
+    const freq = Tone.Frequency(note).toFrequency();
+    setLastNote(note);
+    if (s.isRepeating()) s.setRepeatFreq(freq); // repeat follows the last key
+    s.noteOn(freq);
+  };
   const noteOff = () => s.noteOff();
+
+  const toggleRepeat = () => {
+    if (repeating) {
+      s.stopRepeat();
+      setRepeating(false);
+    } else {
+      s.startRepeat(Tone.Frequency(lastNote).toFrequency(), repeatRate);
+      setRepeating(true);
+    }
+  };
+  const chooseRate = (sec: number) => {
+    setRepeatRate(sec);
+    if (repeating) s.startRepeat(Tone.Frequency(lastNote).toFrequency(), sec);
+  };
+
+  // Leaving the tab stops the repeat (AudioSystem also stops the engine side).
+  useEffect(() => {
+    if (!active && repeating) setRepeating(false);
+  }, [active, repeating]);
 
   const setParam = (key: string, value: number) => {
     s.setParam(key, value);
@@ -175,6 +209,27 @@ export function SoundPanel({ system, active }: Props) {
               <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
             ))}
           </div>
+        </div>
+        <div className="repeat-row">
+          <button
+            type="button"
+            className={`repeat-btn${repeating ? " on" : ""}`}
+            aria-pressed={repeating}
+            onClick={toggleRepeat}
+          >
+            ⟳ REPEAT
+          </button>
+          {REPEAT_RATES.map((r) => (
+            <button
+              key={r.label}
+              type="button"
+              className={`chip${repeatRate === r.s ? " on" : ""}`}
+              onClick={() => chooseRate(r.s)}
+            >
+              {r.label}
+            </button>
+          ))}
+          <span className="repeat-note">{lastNote}</span>
         </div>
         <div className="keyboard" ref={keyboardRef}>
           <div className="keys-scroll" style={{ width: KEYS_WIDTH }}>
