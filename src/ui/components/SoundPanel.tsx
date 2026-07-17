@@ -216,8 +216,15 @@ export function SoundPanel({ system, active }: Props) {
       <PresetControls store={system.presets} getCurrent={(name) => s.toPreset(name)} onApply={applyPreset} />
 
       <div className="sound-main">
-        <div className="sound-top">
-          <div className="voice-panel">
+        {/* Monitor rack: the three displays are peers, side by side on top —
+            eyes up (monitors), hands below (panel, then keys). */}
+        <div className="monitor-row">
+          <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
+          <SpectrumScope sound={s} running={active} />
+          <EnvScope params={params} />
+        </div>
+
+        <div className="voice-panel">
             <div className="vtabs">
               <button type="button" className={`vtab${voiceTab === "osc" ? " on" : ""}`} onClick={() => chooseTab("osc")}>
                 OSC
@@ -327,16 +334,6 @@ export function SoundPanel({ system, active }: Props) {
               </div>
             </div>
 
-            {/* Voice-level envelope display (amp ADSR + pitch EG), always
-                visible below the pages; it soaks up the panel's spare height
-                with something worth looking at. */}
-            <EnvScope params={params} />
-          </div>
-
-          <div className="monitor-col">
-            <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
-            <SpectrumScope sound={s} running={active} />
-          </div>
         </div>
 
         <div className="key-row">

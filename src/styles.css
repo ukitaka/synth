@@ -288,13 +288,17 @@ input[type="range"]::-moz-range-thumb {
 .preset-actions button:disabled { opacity: 0.4; cursor: default; }
 
 .sound-main { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
-/* The top row absorbs the viewport's spare height: monitors grow with it and
-   the voice panel's envelope well soaks up the panel-internal remainder. */
-.sound-top {
-  flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 280px;
-  grid-template-rows: minmax(0, 1fr); /* the row fills the flexed height */
-  gap: 14px; align-items: stretch; min-height: 0;
+
+/* Monitor rack: SCOPE / SPECTRUM / ENVELOPE as equal peers across the top.
+   The row absorbs the viewport's spare height, so the displays grow. */
+.monitor-row {
+  flex: 1; min-height: 96px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
 }
+.monitor-row .scope-wrap { min-height: 0; }
+.monitor-row .scope, .monitor-row .spectrum { height: 100%; }
 
 /* Voice panel: one plate, signal-order section tabs (OSC | FILTER | FX). */
 .voice-panel {
@@ -333,7 +337,7 @@ input[type="range"]::-moz-range-thumb {
 /* Envelope display fills whatever height the pages don't use. The SVG is
    absolutely positioned so its viewBox aspect ratio can't inflate the panel's
    intrinsic height (it must follow the well, not size it). */
-.env-wrap { flex: 1; min-height: 64px; }
+.env-wrap { min-height: 0; }
 .env-svg {
   position: absolute; inset: 0; width: 100%; height: 100%; display: block;
   border-radius: 6px; border: 1px solid var(--well-border);
@@ -343,11 +347,6 @@ input[type="range"]::-moz-range-thumb {
     repeating-linear-gradient(to bottom, #15171a 0, #15171a 1px, transparent 1px, transparent 26px);
   box-shadow: var(--well-shadow-lg);
 }
-
-/* Always-on monitor stack: scope + spectrum split the voice panel's height. */
-.monitor-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
-.monitor-col .scope-wrap { flex: 1; min-height: 0; }
-.monitor-col .scope, .monitor-col .spectrum { height: 100%; }
 
 /* Keyboard row: REPEAT dock (hardware ARP position) + full-width key well. */
 .key-row { display: flex; gap: 10px; align-items: stretch; }
@@ -531,7 +530,9 @@ input[type="range"]::-moz-range-thumb {
   .key-row { order: 0; flex-direction: column; }
   .keyboard-hint { order: 1; }
   .sound-top { order: 2; grid-template-columns: 1fr; }
-  .monitor-col .scope, .monitor-col .spectrum { height: 72px; }
+  .monitor-row { display: flex; flex-direction: column; }
+  .monitor-row .scope, .monitor-row .spectrum { height: 72px; }
+  .env-wrap { min-height: 72px; }
   .repeat-dock { width: auto; flex-direction: row; align-items: center; }
   .repeat-btn { width: auto; padding: 10px 14px; }
   .repeat-rates { flex: 0 0 auto; }
