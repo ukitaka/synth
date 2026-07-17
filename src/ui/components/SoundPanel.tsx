@@ -50,11 +50,16 @@ const WAVES: SynthWaveform[] = ["sawtooth", "square", "triangle", "sine"];
 const FILTERS: { id: FilterType; label: string }[] = [
   { id: "lowpass", label: "LP" }, { id: "highpass", label: "HP" }, { id: "bandpass", label: "BP" },
 ];
+const FILTER_LABEL: Record<FilterType, string> = { lowpass: "LP", highpass: "HP", bandpass: "BP", off: "—" };
 const FX_CHAIN_LABELS: Record<FxId, string> = { drive: "DRIVE", wah: "WAH", delay: "DELAY", reverb: "REV" };
 
-// UI-preference key for the FX section collapse (plain localStorage — this is
-// cosmetic view state, not sound data, so it skips the StorageAdapter).
-const FX_OPEN_KEY = "lab1:ui:fxOpen";
+// Voice-panel sections in signal order (Elektron-style pages). The knob specs
+// are the same SYNTH_SPECS, split by which stage of the path they belong to.
+type VoiceTab = "osc" | "filter" | "fx";
+const VOICE_TAB_KEY = "lab1:ui:voiceTab"; // view state only (replaces lab1:ui:fxOpen)
+const OSC_KEYS = ["pitchAmt", "pitchTime", "noise", "attack", "decay", "sustain", "release"];
+const OSC_SPECS = SYNTH_SPECS.filter((s) => OSC_KEYS.includes(s.key));
+const FILTER_SPECS = SYNTH_SPECS.filter((s) => ["cutoff", "reso", "filterEnv"].includes(s.key));
 
 // Repeat rates in seconds (musical labels assume 120 BPM).
 const REPEAT_RATES = [
@@ -68,7 +73,12 @@ interface Props {
   active: boolean;
 }
 
-/** SOUND tab: presets (left) / knobs+keyboard (center) / scope+chips+FX (right). */
+/**
+ * SOUND tab, v2 layout (docs/sound-layout-brief.md): presets (left) | main.
+ * Main = voice panel with signal-order tabs (OSC | FILTER | FX) + always-on
+ * monitor stack (scope + spectrum), and a full-width keyboard below with the
+ * REPEAT dock at its left edge (hardware ARP position).
+ */
 export function SoundPanel({ system, active }: Props) {
   const s = system.sound;
   const [wave, setWave] = useState<SynthWaveform>(s.getWaveform());
@@ -78,11 +88,12 @@ export function SoundPanel({ system, active }: Props) {
   const [fxParams, setFxParams] = useState<Record<FxId, Record<string, number>>>(() => ({
     drive: fxDefaults("drive"), wah: fxDefaults("wah"), delay: fxDefaults("delay"), reverb: fxDefaults("reverb"),
   }));
-  const [fxOpen, setFxOpen] = useState(() => {
+  const [voiceTab, setVoiceTab] = useState<VoiceTab>(() => {
     try {
-      return window.localStorage.getItem(FX_OPEN_KEY) !== "0";
+      const v = window.localStorage.getItem(VOICE_TAB_KEY);
+      return v === "filter" || v === "fx" ? v : "osc";
     } catch {
-      return true;
+      return "osc";
     }
   });
   const [repeating, setRepeating] = useState(false);
@@ -91,15 +102,13 @@ export function SoundPanel({ system, active }: Props) {
   const held = useRef<Set<string>>(new Set());
   const keyboardRef = useRef<HTMLDivElement>(null);
 
-  const toggleFxOpen = () => {
-    setFxOpen((open) => {
-      try {
-        window.localStorage.setItem(FX_OPEN_KEY, open ? "0" : "1");
-      } catch {
-        /* view state only — fine to lose */
-      }
-      return !open;
-    });
+  const chooseTab = (t: VoiceTab) => {
+    setVoiceTab(t);
+    try {
+      window.localStorage.setItem(VOICE_TAB_KEY, t);
+    } catch {
+      /* view state only */
+    }
   };
 
   // Start the key strip centered on the middle octave when it overflows.
@@ -198,150 +207,185 @@ export function SoundPanel({ system, active }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
+  const anyFxOn = FX_DEFS.some((d) => fxOn[d.id]);
+
   return (
     <div className="sound-tab">
       <PresetControls store={system.presets} getCurrent={(name) => s.toPreset(name)} onApply={applyPreset} />
 
-      <div className="sound-center">
-        <div className="center-controls">
-          <div className="knob-row">
-            {SYNTH_SPECS.map((spec) => (
-              <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
-            ))}
+      <div className="sound-main">
+        <div className="sound-top">
+          <div className="voice-panel">
+            <div className="vtabs">
+              <button type="button" className={`vtab${voiceTab === "osc" ? " on" : ""}`} onClick={() => chooseTab("osc")}>
+                OSC
+              </button>
+              <button type="button" className={`vtab${voiceTab === "filter" ? " on" : ""}`} onClick={() => chooseTab("filter")}>
+                FILTER <span className="vtab-status">{FILTER_LABEL[filterType]}</span>
+              </button>
+              <button type="button" className={`vtab${voiceTab === "fx" ? " on" : ""}`} onClick={() => chooseTab("fx")}>
+                FX
+                <span className="vtab-leds">
+                  {FX_DEFS.map((def) => (
+                    <span key={def.id} className={`vtab-led${fxOn[def.id] ? " on" : ""}`} />
+                  ))}
+                </span>
+              </button>
+              <span className="vchain" aria-hidden="true">
+                <span className="vchain-seg">IN</span>
+                <span className="vchain-arrow">›</span>
+                <span className="vchain-seg on">OSC</span>
+                <span className="vchain-arrow">›</span>
+                <span className={`vchain-seg${filterType !== "off" ? " on" : ""}`}>FILTER</span>
+                <span className="vchain-arrow">›</span>
+                <span className={`vchain-seg${anyFxOn ? " on" : ""}`}>FX</span>
+                <span className="vchain-arrow">›</span>
+                <span className="vchain-seg">OUT</span>
+              </span>
+            </div>
+
+            {voiceTab === "osc" && (
+              <>
+                <div className="select-row">
+                  <span className="select-group">
+                    <span className="select-label">WAVE</span>
+                    {WAVES.map((w) => (
+                      <button key={w} type="button" className={`chip${wave === w ? " on" : ""}`} onClick={() => chooseWave(w)}>{w}</button>
+                    ))}
+                  </span>
+                </div>
+                <div className="knob-row">
+                  {OSC_SPECS.map((spec) => (
+                    <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {voiceTab === "filter" && (
+              <>
+                <div className="select-row">
+                  <span className="select-group">
+                    {FILTERS.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        className={`chip${filterType === f.id ? " on" : ""}`}
+                        aria-pressed={filterType === f.id}
+                        onClick={() => chooseFilter(f.id)}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </span>
+                </div>
+                <div className="knob-row">
+                  {FILTER_SPECS.map((spec) => (
+                    <Knob key={spec.key} spec={spec} value={params[spec.key]} onChange={(v) => setParam(spec.key, v)} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {voiceTab === "fx" && (
+              <>
+                <div className="fx-chain">
+                  <span className="fx-chain-seg">IN</span>
+                  {FX_DEFS.map((def) => (
+                    <span key={def.id} className="fx-chain-seg-wrap">
+                      <span className="fx-chain-arrow">›</span>
+                      <span className={`fx-chain-seg${fxOn[def.id] ? " on" : ""}`}>{FX_CHAIN_LABELS[def.id]}</span>
+                    </span>
+                  ))}
+                  <span className="fx-chain-arrow">›</span>
+                  <span className="fx-chain-seg">OUT</span>
+                </div>
+                <div className="fx-rack">
+                  {FX_DEFS.map((def) => (
+                    <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
+                      <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
+                        <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
+                        <span className="fx-name">{def.label}</span>
+                        <span className="fx-state">{fxOn[def.id] ? "ON" : "OFF"}</span>
+                      </button>
+                      <div className="knob-row">
+                        {def.params.map((spec) => (
+                          <Knob key={spec.key} spec={spec} size="sm" value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="monitor-col">
+            <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
+            <SpectrumScope sound={s} running={active} />
           </div>
         </div>
-        <div className="repeat-row">
-          <button
-            type="button"
-            className={`repeat-btn${repeating ? " on" : ""}`}
-            aria-pressed={repeating}
-            onClick={toggleRepeat}
-          >
-            ⟳ REPEAT
-          </button>
-          {REPEAT_RATES.map((r) => (
+
+        <div className="key-row">
+          <div className="repeat-dock">
             <button
-              key={r.label}
               type="button"
-              className={`chip${repeatRate === r.s ? " on" : ""}`}
-              onClick={() => chooseRate(r.s)}
+              className={`repeat-btn${repeating ? " on" : ""}`}
+              aria-pressed={repeating}
+              onClick={toggleRepeat}
             >
-              {r.label}
+              ⟳ REPEAT
             </button>
-          ))}
-          <span className="repeat-note">{lastNote}</span>
-        </div>
-        <div className="keyboard" ref={keyboardRef}>
-          <div className="keys-scroll" style={{ width: KEYS_WIDTH }}>
-            <div className="keys-white">
-              {WHITE_KEYS.map((k) => (
+            <div className="repeat-rates">
+              {REPEAT_RATES.map((r) => (
                 <button
-                  key={k.note}
+                  key={r.label}
                   type="button"
-                  className="pkey"
-                  style={{ touchAction: "none" }}
-                  onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
-                  onPointerUp={noteOff}
-                  onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
+                  className={`chip${repeatRate === r.s ? " on" : ""}`}
+                  onClick={() => chooseRate(r.s)}
                 >
-                  <span className="pkey-label">{k.note}</span>
+                  {r.label}
                 </button>
               ))}
             </div>
-            <div className="keys-black">
-              {BLACK_KEYS.map((k) => (
-                <button
-                  key={k.note}
-                  type="button"
-                  className="pkey sharp"
-                  style={{ touchAction: "none", left: k.left }}
-                  onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
-                  onPointerUp={noteOff}
-                  onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
-                >
-                  <span className="pkey-label">{k.note}</span>
-                </button>
-              ))}
+            <div className="repeat-note">{lastNote}</div>
+          </div>
+          <div className="keyboard" ref={keyboardRef}>
+            <div className="keys-scroll" style={{ width: KEYS_WIDTH }}>
+              <div className="keys-white">
+                {WHITE_KEYS.map((k) => (
+                  <button
+                    key={k.note}
+                    type="button"
+                    className="pkey"
+                    style={{ touchAction: "none" }}
+                    onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
+                    onPointerUp={noteOff}
+                    onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
+                  >
+                    <span className="pkey-label">{k.note}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="keys-black">
+                {BLACK_KEYS.map((k) => (
+                  <button
+                    key={k.note}
+                    type="button"
+                    className="pkey sharp"
+                    style={{ touchAction: "none", left: k.left }}
+                    onPointerDown={(e) => { e.preventDefault(); noteOn(k.note); }}
+                    onPointerUp={noteOff}
+                    onPointerLeave={(e) => { if (e.buttons) noteOff(); }}
+                  >
+                    <span className="pkey-label">{k.note}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
         <div className="keyboard-hint">A W S E D F T G Y H U J K　·　C2–C7 HORIZONTAL SCROLL</div>
-      </div>
-
-      <div className="sound-controls">
-        <Oscilloscope master={system.master} running={active} sub="MASTER · PRE-CLIP" />
-
-        <div className="select-col">
-          <span className="select-label">OSC WAVE</span>
-          <div className="wave-grid">
-            {WAVES.map((w) => (
-              <button key={w} type="button" className={`chip${wave === w ? " on" : ""}`} onClick={() => chooseWave(w)}>{w}</button>
-            ))}
-          </div>
-        </div>
-        <div className="select-col">
-          <span className="select-label">FILTER</span>
-          <div className="filt-row">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className={`chip${filterType === f.id ? " on" : ""}`}
-                aria-pressed={filterType === f.id}
-                onClick={() => chooseFilter(f.id)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <SpectrumScope sound={s} running={active} />
-        </div>
-
-        {fxOpen ? (
-          <div className="fx-section">
-            <div className="fx-head">
-              <span className="select-label">FX CHAIN</span>
-              <button type="button" className="fx-collapse" onClick={toggleFxOpen} aria-label="collapse FX" aria-expanded="true">»</button>
-            </div>
-            <div className="fx-chain">
-              <span className="fx-chain-seg">IN</span>
-              {FX_DEFS.map((def) => (
-                <span key={def.id} className="fx-chain-seg-wrap">
-                  <span className="fx-chain-arrow">›</span>
-                  <span className={`fx-chain-seg${fxOn[def.id] ? " on" : ""}`}>{FX_CHAIN_LABELS[def.id]}</span>
-                </span>
-              ))}
-              <span className="fx-chain-arrow">›</span>
-              <span className="fx-chain-seg">OUT</span>
-            </div>
-            <div className="fx-rack">
-              {FX_DEFS.map((def) => (
-                <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
-                  <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
-                    <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
-                    <span className="fx-name">{def.label}</span>
-                    <span className="fx-state">{fxOn[def.id] ? "ON" : "OFF"}</span>
-                  </button>
-                  <div className="knob-row">
-                    {def.params.map((spec) => (
-                      <Knob key={spec.key} spec={spec} size="sm" value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="fx-collapsed">
-            <span className="select-label">FX CHAIN</span>
-            <span className="fx-collapsed-leds">
-              {FX_DEFS.map((def) => (
-                <span key={def.id} className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
-              ))}
-            </span>
-            <button type="button" className="fx-collapse" onClick={toggleFxOpen} aria-label="expand FX" aria-expanded="false">«</button>
-          </div>
-        )}
       </div>
     </div>
   );

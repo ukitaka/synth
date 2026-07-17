@@ -252,9 +252,12 @@ input[type="range"]::-moz-range-thumb {
 
 /* ===================== SOUND tab: 3 columns ===================== */
 
-.sound-tab { display: grid; grid-template-columns: 200px minmax(0, 1fr) 260px; gap: 14px 22px; align-items: stretch; height: 100%; }
+/* SOUND v2 (docs/sound-layout-brief.md): presets | main. Main = voice panel
+   with signal-order tabs + always-on monitor stack, keyboard full-width below
+   with the REPEAT dock at its left edge. */
+.sound-tab { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 14px 22px; align-items: stretch; height: 100%; }
 
-/* Side columns are flat — children sit directly on the chassis (max one level
+/* Left column is flat — children sit directly on the chassis (max one level
    of container nesting, e.g. the preset-list well). */
 .preset-col {
   display: flex; flex-direction: column; gap: 10px; min-height: 0;
@@ -284,34 +287,68 @@ input[type="range"]::-moz-range-thumb {
 .preset-actions button { flex: 1; background: var(--btn); color: var(--muted); box-shadow: var(--btn-shadow); font-weight: 400; }
 .preset-actions button:disabled { opacity: 0.4; cursor: default; }
 
-.sound-center { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
-.center-controls {
+.sound-main { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
+.sound-top { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: stretch; min-height: 0; }
+
+/* Voice panel: one plate, signal-order section tabs (OSC | FILTER | FX). */
+.voice-panel {
   background: var(--plate); border: 1px solid var(--plate-border); border-radius: 8px;
   padding: 16px; box-shadow: var(--plate-shadow); display: flex; flex-direction: column; gap: 14px;
+  min-width: 0;
 }
+.vtabs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vtab {
+  display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 4px;
+  font-size: 10px; letter-spacing: 0.14em; background: var(--btn); color: var(--muted);
+  border: 1px solid var(--btn-border); cursor: pointer; box-shadow: var(--btn-shadow);
+}
+.vtab.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; border-color: rgba(0, 0, 0, 0.5); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35); }
+.vtab-status { font-size: 8px; letter-spacing: 0.08em; color: var(--off); }
+.vtab.on .vtab-status { color: #4d2c0e; }
+.vtab-leds { display: flex; gap: 3px; }
+.vtab-led { width: 5px; height: 5px; border-radius: 50%; background: var(--led-off); }
+.vtab-led.on { background: var(--led); box-shadow: 0 0 4px var(--led); }
+.vtab.on .vtab-led { background: rgba(25, 17, 6, 0.35); box-shadow: none; }
+.vtab.on .vtab-led.on { background: #1f5c38; }
+.vchain { margin-left: auto; display: flex; gap: 5px; align-items: baseline; }
+.vchain-seg { font-size: 8px; letter-spacing: 0.12em; color: var(--off); }
+.vchain-seg.on { color: var(--muted); }
+.vchain-arrow { font-size: 8px; color: var(--off); }
 
-/* repeat playback row (between the knob plate and the keyboard) */
-.repeat-row { display: flex; align-items: center; gap: 6px; }
+/* Always-on monitor stack: scope + spectrum split the voice panel's height. */
+.monitor-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.monitor-col .scope-wrap { flex: 1; min-height: 0; }
+.monitor-col .scope, .monitor-col .spectrum { height: 100%; }
+
+/* Keyboard row: REPEAT dock (hardware ARP position) + full-width key well. */
+.key-row { display: flex; gap: 10px; align-items: stretch; }
+.repeat-dock {
+  width: 112px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;
+  background: var(--plate); border: 1px solid var(--plate-border); border-radius: 8px;
+  padding: 10px; box-shadow: var(--plate-shadow);
+}
 .repeat-btn {
-  display: flex; align-items: center; gap: 6px; padding: 9px 16px;
+  display: flex; align-items: center; justify-content: center; gap: 5px; padding: 10px 0; width: 100%;
   background: var(--btn); color: var(--muted); border: 1px solid var(--btn-border);
-  border-radius: 4px; cursor: pointer; font-size: 10px; letter-spacing: 0.14em; font-weight: 600;
+  border-radius: 4px; cursor: pointer; font-size: 9px; letter-spacing: 0.1em; font-weight: 700;
   box-shadow: var(--btn-shadow);
 }
 .repeat-btn.on {
   background: var(--led); color: #08130c; border-color: rgba(0, 0, 0, 0.5);
   box-shadow: 0 0 14px rgba(82, 255, 157, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
-.repeat-row .chip { flex: 0 0 auto; min-width: 52px; padding: 9px 10px; }
+.repeat-rates { display: flex; gap: 4px; }
+.repeat-rates .chip { flex: 1; min-width: 0; padding: 7px 0; font-size: 8px; }
 .repeat-note {
-  margin-left: auto; min-width: 44px; text-align: center; font-size: 11px; color: var(--accent);
+  margin-top: auto; text-align: center; font-size: 11px; color: var(--accent);
   background: var(--well); border: 1px solid var(--well-border); border-radius: 4px;
-  padding: 8px 10px; box-shadow: var(--well-shadow);
+  padding: 8px 0; box-shadow: var(--well-shadow);
 }
 
-/* Fixed-width keys over three octaves; anything wider than the column scrolls
+/* Fixed-width keys over five octaves; anything wider than the row scrolls
    inside the well (the strip is centered while it still fits). */
 .keyboard {
+  flex: 1; min-width: 0;
   background: var(--well); border: 1px solid var(--well-border);
   border-radius: 6px; padding: 10px; box-shadow: var(--well-shadow-lg);
   overflow-x: auto;
@@ -336,42 +373,16 @@ input[type="range"]::-moz-range-thumb {
 .pkey.sharp .pkey-label { font-size: 7px; color: #9aa0a8; }
 .keyboard-hint { text-align: center; font-size: 9px; letter-spacing: 0.3em; color: var(--off); }
 
-.sound-controls {
-  display: flex; flex-direction: column; gap: 12px;
-  min-height: 0; overflow-y: auto;
-}
-.sound-controls .scope { height: 110px; flex-shrink: 0; }
 .knob-row { display: flex; gap: 18px; flex-wrap: wrap; row-gap: 16px; }
 
-.select-col { display: flex; flex-direction: column; gap: 6px; }
-.wave-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.wave-grid .chip { min-width: 0; }
-.filt-row { display: flex; gap: 6px; }
-.filt-row .chip { flex: 1; min-width: 0; }
-
-/* fx chain strip + rack (right column; collapsible) */
-.fx-section { display: flex; flex-direction: column; gap: 8px; }
-.fx-head { display: flex; align-items: center; gap: 8px; }
-.fx-head .select-label { flex: 1; margin: 0; }
-.fx-collapse {
-  width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
-  background: var(--btn); color: var(--muted); border: 1px solid var(--btn-border);
-  border-radius: 4px; cursor: pointer; font-size: 11px; box-shadow: var(--btn-shadow);
-}
-.fx-collapsed {
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-  background: #1c1e23; border: 1px solid var(--btn-border); border-radius: 6px;
-}
-.fx-collapsed .select-label { flex: 1; margin: 0; }
-.fx-collapsed-leds { display: flex; gap: 8px; }
-
+/* fx chain strip + rack (inside the FX tab) */
 .fx-chain { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
 .fx-chain-seg-wrap { display: inline-flex; align-items: baseline; gap: 4px; }
 .fx-chain-seg { font-size: 8px; letter-spacing: 0.12em; color: var(--off); }
 .fx-chain-seg.on { color: var(--ink); }
 .fx-chain-arrow { font-size: 8px; color: var(--off); }
 
-.fx-rack { display: flex; flex-direction: column; gap: 8px; }
+.fx-rack { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .fx-unit {
   background: #1c1e23; border: 1px solid var(--btn-border); border-radius: 6px;
   padding: 10px 12px; display: flex; flex-direction: column; gap: 10px;
@@ -477,24 +488,35 @@ input[type="range"]::-moz-range-thumb {
 /* ===================== mobile ===================== */
 
 @media (max-width: 820px) {
-  /* On mobile the page scrolls normally again; columns stack, and the flat
-     side columns regain a plate so stacked sections read as separate cards. */
+  /* On mobile the page scrolls normally again and sections stack in playing
+     order: keyboard (repeat docked on top) -> voice panel -> monitors ->
+     presets (which regains a plate so it reads as a card). */
   .lab1 { height: auto; overflow: visible; }
   .sound-tab { display: flex; flex-direction: column; height: auto; }
-  .sound-tab .preset-col { order: 3; }
-  .sound-tab .sound-center { order: 1; }
-  .sound-tab .sound-controls { order: 2; }
-  .sound-center, .sound-controls, .pattern-tab { overflow-y: visible; height: auto; }
-  .preset-col, .sound-controls {
+  .sound-tab .sound-main { order: 1; }
+  .sound-tab .preset-col { order: 2; }
+  .pattern-tab { overflow-y: visible; height: auto; }
+  .preset-col {
     background: var(--plate); border: 1px solid var(--plate-border); border-radius: 8px;
     padding: 14px; box-shadow: var(--plate-shadow);
   }
   .preset-list { max-height: 180px; flex: none; }
+  .sound-main { display: flex; flex-direction: column; }
+  .key-row { order: 0; flex-direction: column; }
+  .keyboard-hint { order: 1; }
+  .sound-top { order: 2; grid-template-columns: 1fr; }
+  .monitor-col .scope, .monitor-col .spectrum { height: 72px; }
+  .repeat-dock { width: auto; flex-direction: row; align-items: center; }
+  .repeat-btn { width: auto; padding: 10px 14px; }
+  .repeat-rates { flex: 0 0 auto; }
+  .repeat-rates .chip { min-width: 40px; padding: 10px 0; }
+  .repeat-note { margin-top: 0; margin-left: auto; min-width: 48px; padding: 9px 0; }
   .keys-white { height: 158px; }
   .knob-lg .knob-dial { width: 48px; height: 48px; }
   .knob-lg .knob-cap { inset: 9px; }
   .knob-lg .knob-indicator { top: 2px; height: 7px; }
   /* FX accordion on narrow screens: only the first unit stays expanded */
+  .fx-rack { grid-template-columns: 1fr; }
   .fx-rack .fx-unit:not(:first-child) .knob-row { display: none; }
   .track-head { width: 100%; }
   .track-row { flex-wrap: wrap; }
