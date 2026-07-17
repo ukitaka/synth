@@ -7,6 +7,7 @@ import { FX_DEFS, fxDefaults, type FxId } from "../../engine/fx/fxSpecs";
 import { Knob } from "./Knob";
 import { Oscilloscope } from "./Oscilloscope";
 import { SpectrumScope } from "./SpectrumScope";
+import { EnvScope } from "./EnvScope";
 import { PresetControls } from "./PresetControls";
 
 // Keyboard geometry: fixed-width keys over five rendered octaves (C2..C7);
@@ -325,6 +326,11 @@ export function SoundPanel({ system, active }: Props) {
                 ))}
               </div>
             </div>
+
+            {/* Voice-level envelope display (amp ADSR + pitch EG), always
+                visible below the pages; it soaks up the panel's spare height
+                with something worth looking at. */}
+            <EnvScope params={params} />
           </div>
 
           <div className="monitor-col">
