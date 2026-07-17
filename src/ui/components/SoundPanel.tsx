@@ -51,7 +51,6 @@ const FILTERS: { id: FilterType; label: string }[] = [
   { id: "lowpass", label: "LP" }, { id: "highpass", label: "HP" }, { id: "bandpass", label: "BP" },
 ];
 const FILTER_LABEL: Record<FilterType, string> = { lowpass: "LP", highpass: "HP", bandpass: "BP", off: "—" };
-const FX_CHAIN_LABELS: Record<FxId, string> = { drive: "DRIVE", wah: "WAH", delay: "DELAY", reverb: "REV" };
 
 // Voice-panel sections in signal order (Elektron-style pages). The knob specs
 // are the same SYNTH_SPECS, split by which stage of the path they belong to.
@@ -96,6 +95,8 @@ export function SoundPanel({ system, active }: Props) {
       return "osc";
     }
   });
+  // Which effect the FX page is editing (sub-tab; scales with FX_DEFS).
+  const [fxSel, setFxSel] = useState<FxId>("drive");
   const [repeating, setRepeating] = useState(false);
   const [repeatRate, setRepeatRate] = useState(0.25);
   const [lastNote, setLastNote] = useState("C4");
@@ -288,33 +289,40 @@ export function SoundPanel({ system, active }: Props) {
               </div>
 
               <div className={`vtab-page${voiceTab === "fx" ? " on" : ""}`}>
-                <div className="fx-chain">
-                  <span className="fx-chain-seg">IN</span>
+                {/* The signal chain doubles as the sub-tab bar: IN › units › OUT.
+                    Adding an effect to FX_DEFS grows this row automatically. */}
+                <div className="fx-nav">
+                  <span className="vchain-seg">IN</span>
                   {FX_DEFS.map((def) => (
-                    <span key={def.id} className="fx-chain-seg-wrap">
-                      <span className="fx-chain-arrow">›</span>
-                      <span className={`fx-chain-seg${fxOn[def.id] ? " on" : ""}`}>{FX_CHAIN_LABELS[def.id]}</span>
+                    <span key={def.id} className="fx-nav-step">
+                      <span className="vchain-arrow">›</span>
+                      <button
+                        type="button"
+                        className={`chip fx-navchip${fxSel === def.id ? " on" : ""}`}
+                        onClick={() => setFxSel(def.id)}
+                      >
+                        <span className={`vtab-led${fxOn[def.id] ? " on" : ""}`} />
+                        {def.label}
+                      </button>
                     </span>
                   ))}
-                  <span className="fx-chain-arrow">›</span>
-                  <span className="fx-chain-seg">OUT</span>
+                  <span className="vchain-arrow">›</span>
+                  <span className="vchain-seg">OUT</span>
                 </div>
-                <div className="fx-rack">
-                  {FX_DEFS.map((def) => (
-                    <div key={def.id} className={`fx-unit${fxOn[def.id] ? " on" : ""}`}>
-                      <button type="button" className="fx-title" onClick={() => toggleFx(def.id)}>
-                        <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
-                        <span className="fx-name">{def.label}</span>
-                        <span className="fx-state">{fxOn[def.id] ? "ON" : "OFF"}</span>
-                      </button>
-                      <div className="knob-row">
-                        {def.params.map((spec) => (
-                          <Knob key={spec.key} spec={spec} size="sm" value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
-                        ))}
-                      </div>
+                {FX_DEFS.filter((def) => def.id === fxSel).map((def) => (
+                  <div key={def.id} className={`fx-edit${fxOn[def.id] ? "" : " off"}`}>
+                    <button type="button" className={`fx-power${fxOn[def.id] ? " on" : ""}`} onClick={() => toggleFx(def.id)}>
+                      <span className={`fx-led${fxOn[def.id] ? " on" : ""}`} />
+                      <span className="fx-name">{def.label}</span>
+                      <span className="fx-state">{fxOn[def.id] ? "ON" : "OFF"}</span>
+                    </button>
+                    <div className="knob-row">
+                      {def.params.map((spec) => (
+                        <Knob key={spec.key} spec={spec} value={fxParams[def.id][spec.key]} onChange={(v) => setFxParam(def.id, spec.key, v)} />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

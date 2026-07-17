@@ -384,29 +384,22 @@ input[type="range"]::-moz-range-thumb {
 
 .knob-row { display: flex; gap: 18px; flex-wrap: wrap; row-gap: 16px; }
 
-/* fx chain strip + rack (inside the FX tab) */
-.fx-chain { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
-.fx-chain-seg-wrap { display: inline-flex; align-items: baseline; gap: 4px; }
-.fx-chain-seg { font-size: 8px; letter-spacing: 0.12em; color: var(--off); }
-.fx-chain-seg.on { color: var(--ink); }
-.fx-chain-arrow { font-size: 8px; color: var(--off); }
+/* FX page: the signal chain doubles as the sub-tab bar (IN › units › OUT);
+   one effect is edited at a time at the same scale as the OSC page. */
+.fx-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fx-nav-step { display: inline-flex; align-items: center; gap: 6px; }
+.fx-navchip { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.fx-navchip.on .vtab-led { background: rgba(25, 17, 6, 0.35); box-shadow: none; }
+.fx-navchip.on .vtab-led.on { background: #1f5c38; }
 
-.fx-rack { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-/* Horizontal unit (title block left, knobs right) keeps the FX page about as
-   short as the OSC page, so the stacked-pages height reservation stays small. */
-.fx-unit {
+.fx-edit { display: flex; align-items: center; gap: 18px; }
+.fx-power {
+  width: 96px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
   background: #1c1e23; border: 1px solid var(--btn-border); border-radius: 6px;
-  padding: 10px 12px; display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
-.fx-unit.on { background: #26292f; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.4); }
-.fx-unit .knob-row { gap: 10px; row-gap: 8px; }
-.fx-unit .knob { width: 52px; }
-.fx-title {
-  width: 84px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
-  background: none; border: none; cursor: pointer; padding: 0;
-}
-.fx-title .fx-name { text-align: left; }
+.fx-power.on { background: #26292f; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.4); }
 .fx-led {
   width: 12px; height: 12px; border-radius: 50%; background: var(--well);
   display: grid; place-items: center; box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.8);
@@ -414,11 +407,11 @@ input[type="range"]::-moz-range-thumb {
 .fx-led::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--led-off); }
 .fx-led.on::after { background: var(--led); box-shadow: 0 0 8px var(--led); }
 .fx-name { font-size: 9px; letter-spacing: 0.12em; color: var(--muted); }
-.fx-unit.on .fx-name { color: var(--ink); }
+.fx-power.on .fx-name { color: var(--ink); }
 .fx-state { font-size: 8px; letter-spacing: 0.16em; color: var(--muted); }
-.fx-unit.on .fx-state { color: var(--led); }
-.fx-unit .knob-row { gap: 14px; row-gap: 8px; opacity: 0.4; transition: opacity 0.15s ease; }
-.fx-unit.on .knob-row { opacity: 1; }
+.fx-power.on .fx-state { color: var(--led); }
+.fx-edit .knob-row { transition: opacity 0.15s ease; }
+.fx-edit.off .knob-row { opacity: 0.4; }
 
 /* ===================== PATTERN tab ===================== */
 
@@ -533,10 +526,7 @@ input[type="range"]::-moz-range-thumb {
   .vtab-pages { display: block; }
   .vtab-page { display: none; }
   .vtab-page.on { display: flex; }
-  /* FX accordion on narrow screens: only the first unit stays expanded */
-  .fx-rack { grid-template-columns: 1fr; }
-  .fx-rack .fx-unit:not(:first-child) .knob-row { display: none; }
-  .fx-unit { flex-wrap: wrap; }
+  .fx-edit { flex-wrap: wrap; }
   .track-head { width: 100%; }
   .track-row { flex-wrap: wrap; }
   .seq-steps { width: 100%; }
